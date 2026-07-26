@@ -1,3 +1,20 @@
 <p class="eyebrow">on-device speech</p>
 <h1>Aloud</h1>
-<p class="tagline">Nothing here yet.</p>
+<p class="tagline">
+  Nothing leaves the browser. Right now that only proves itself on the level meter.
+</p>
+
+<section class="panel">
+  <aloud-level-meter [history]="capture.history()" />
+
+  <div class="controls">
+    <button type="button" [disabled]="capture.state() === 'starting'" (click)="capture.toggle()">
+      {{ capture.state() === 'running' ? 'Stop' : 'Start' }}
+    </button>
+    <span class="status">{{ capture.status() }}</span>
+  </div>
+
+  @if (capture.error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</section>

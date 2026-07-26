@@ -23,3 +23,28 @@ h1 {
   margin: 0 0 32px;
   color: var(--ink-2);
 }
+
+.panel {
+  padding: 22px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.status {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.error {
+  margin-top: 14px;
+  color: var(--alarm);
+  font-size: 14px;
+}
