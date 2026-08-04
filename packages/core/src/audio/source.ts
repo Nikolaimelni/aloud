@@ -15,6 +15,9 @@ export type FrameHandler = (frame: AudioFrame) => void;
  * or a captured tab; in CI it is a WAV file pushed through faster than real time.
  */
 export interface AudioSource {
+  /** Resolves once audio is flowing, not once it has all arrived. */
   start(onFrame: FrameHandler): Promise<void>;
   stop(): Promise<void>;
+  /** Resolves when no more frames are coming: the file ran out, or stop() was called. */
+  readonly finished: Promise<void>;
 }

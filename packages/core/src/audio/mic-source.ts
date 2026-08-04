@@ -12,6 +12,11 @@ export class MicSource implements AudioSource {
   private context: AudioContext | null = null;
   private stream: MediaStream | null = null;
   private node: AudioWorkletNode | null = null;
+  private done: () => void = () => {};
+
+  readonly finished = new Promise<void>((resolve) => {
+    this.done = resolve;
+  });
 
   constructor(private readonly options: MicSourceOptions) {}
 
@@ -88,5 +93,7 @@ export class MicSource implements AudioSource {
     const context = this.context;
     this.context = null;
     await context?.close();
+
+    this.done();
   }
 }
