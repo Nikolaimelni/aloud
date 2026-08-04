@@ -1,0 +1,122 @@
+<h2>Transcribe a file</h2>
+<p class="hint">
+  The weights download once and stay in the browser cache. After that the audio never leaves this
+  tab, and neither does the transcript.
+</p>
+
+<div class="options">
+  <label>
+    Model
+    <select [value]="store.model()" [disabled]="store.busy()" (change)="setModel($event)">
+      @for (model of models; track model) {
+        <option [value]="model">{{ shortName(model) }}</option>
+      }
+    </select>
+  </label>
+
+  <label>
+    Backend
+    <select [value]="store.device()" [disabled]="store.busy()" (change)="setDevice($event)">
+      <option value="auto">auto</option>
+      <option value="webgpu">webgpu</option>
+      <option value="wasm">wasm</option>
+    </select>
+  </label>
+
+  <label>
+    Precision
+    <select [value]="store.precision()" [disabled]="store.busy()" (change)="setPrecision($event)">
+      @for (precision of precisions; track precision) {
+        <option [value]="precision">{{ precision }}</option>
+      }
+    </select>
+  </label>
+
+  <label>
+    Language
+    <input
+      type="text"
+      placeholder="auto"
+      size="8"
+      [value]="store.language()"
+      [disabled]="store.busy()"
+      (input)="setLanguage($event)"
+    />
+  </label>
+
+  <label class="check">
+    <input
+      type="checkbox"
+      [checked]="store.translate()"
+      [disabled]="store.busy()"
+      (change)="setTranslate($event)"
+    />
+    Translate to English
+  </label>
+</div>
+
+<input
+  class="file"
+  type="file"
+  accept="audio/*"
+  [disabled]="store.busy()"
+  (change)="choose($event)"
+/>
+
+@if (store.download(); as download) {
+  <p class="status">
+    Downloading weights, {{ megabytes(download.loaded) }} of {{ megabytes(download.total) }} MB
+  </p>
+  <progress [value]="download.loaded" [max]="download.total"></progress>
+}
+
+@switch (store.phase()) {
+  @case ('decoding') {
+    <p class="status">Decoding audio</p>
+  }
+  @case ('running') {
+    <p class="status">Transcribing</p>
+  }
+}
+
+@if (store.error(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+
+@if (store.stats(); as stats) {
+  <dl class="stats">
+    <div>
+      <dt>backend</dt>
+      <dd>{{ stats.device }}</dd>
+    </div>
+    <div>
+      <dt>audio</dt>
+      <dd>{{ seconds(stats.audioSeconds) }} s</dd>
+    </div>
+    <div>
+      <dt>inference</dt>
+      <dd>{{ seconds(stats.inferenceMs / 1000) }} s</dd>
+    </div>
+    <div>
+      <dt>real-time factor</dt>
+      <dd>{{ factor(store.realTimeFactor() ?? 0) }}</dd>
+    </div>
+    <div>
+      <dt>model load</dt>
+      <dd>{{ seconds(stats.loadMs / 1000) }} s</dd>
+    </div>
+  </dl>
+}
+
+@if (store.transcript(); as transcript) {
+  <div class="transcript">
+    @for (chunk of transcript.chunks; track $index) {
+      <p>
+        <span class="at">{{ stamp(chunk.start) }}</span
+        >{{ chunk.text }}
+      </p>
+    } @empty {
+      <p>{{ transcript.text }}</p>
+    }
+  </div>
+}

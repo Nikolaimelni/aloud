@@ -113,9 +113,7 @@ describe('decodeWav', () => {
   it('mixes channels down to mono', () => {
     const left = ramp(32, 0.5);
     const right = left.map((value) => -value);
-    const decoded = decodeWav(
-      buildWav({ sampleRate: 48_000, bits: 16, channels: [left, right] }),
-    );
+    const decoded = decodeWav(buildWav({ sampleRate: 48_000, bits: 16, channels: [left, right] }));
 
     expect(decoded.channels).toBe(2);
     for (const sample of decoded.samples) {

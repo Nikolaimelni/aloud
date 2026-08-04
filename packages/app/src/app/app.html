@@ -1,10 +1,11 @@
 <p class="eyebrow">on-device speech</p>
 <h1>Aloud</h1>
 <p class="tagline">
-  Nothing leaves the browser. Right now that only proves itself on the level meter.
+  Whole files transcribe today. Live transcription is the point of the project and is not here yet.
 </p>
 
 <section class="panel">
+  <h2>Microphone</h2>
   <aloud-level-meter [history]="capture.history()" />
 
   <div class="controls">
@@ -17,4 +18,8 @@
   @if (capture.error(); as message) {
     <p class="error" role="alert">{{ message }}</p>
   }
+</section>
+
+<section class="panel">
+  <aloud-transcribe-panel />
 </section>

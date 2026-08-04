@@ -28,6 +28,15 @@ h1 {
   padding: 22px;
   border: 1px solid var(--rule);
   background: var(--surface);
+
+  & + & {
+    margin-top: 18px;
+  }
+
+  > h2 {
+    margin: 0 0 14px;
+    font-size: 20px;
+  }
 }
 
 .controls {

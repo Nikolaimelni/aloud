@@ -36,7 +36,11 @@ function wav(sampleRate: number, seconds: number): ArrayBuffer {
   u32(frames * 2);
 
   for (let i = 0; i < frames; i++) {
-    view.setInt16(44 + i * 2, Math.round(16000 * Math.sin((2 * Math.PI * 440 * i) / sampleRate)), true);
+    view.setInt16(
+      44 + i * 2,
+      Math.round(16000 * Math.sin((2 * Math.PI * 440 * i) / sampleRate)),
+      true,
+    );
   }
 
   return buffer;
