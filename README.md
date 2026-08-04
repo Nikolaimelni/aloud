@@ -4,7 +4,7 @@ Live speech transcription that runs entirely in the browser. The model is fetche
 evaluated on your own machine, the audio never leaves the tab, and the transcript fills in
 while you are still talking.
 
-It is also unfinished. See Status before you clone it expecting a transcript.
+It is also unfinished. See Status before you clone it expecting a live transcript.
 
 ## Why
 
@@ -15,8 +15,7 @@ a few points worse, but nothing to upload and nothing to delete afterwards.
 
 ## Latency, honestly
 
-Real-time here does not mean instant, and the arithmetic is worth writing down before the
-first measurement exists.
+Real-time here does not mean instant. This is the budget the design is aimed at.
 
 | Stage            | Budget        | Why                                                                                              |
 | ---------------- | ------------- | ------------------------------------------------------------------------------------------------ |
@@ -25,21 +24,54 @@ first measurement exists.
 | Inference window | 600-1200 ms   | Whisper is an encoder-decoder over a window, not a streaming model. Window step is the real dial |
 | Stabilisation    | one more step | A word is only printed as confirmed once two consecutive passes agree on it                      |
 
-So the live hypothesis trails speech by roughly 0.7-1.3 s and confirmed text by another
-window step. **These are design targets, not measurements.** Week 5 replaces this table with
-numbers from the benchmark harness. If it turns out to be three seconds, the table will say
-three seconds.
+The first measurements say the low end of that window row is wishful. See below.
+
+## First numbers
+
+One laptop, AMD GCN5 GPU, Chromium 152, one 11-second English clip. This is not the
+benchmark harness, which arrives in week 5 with several languages and a word error rate.
+It is enough to know whether the idea works at all.
+
+| Model        | Backend | Weights                  | Inference | Real-time factor                       |
+| ------------ | ------- | ------------------------ | --------- | -------------------------------------- |
+| whisper-tiny | WebGPU  | fp32 encoder, q4 decoder | 1.7 s     | 0.15                                   |
+| whisper-base | WebGPU  | q4                       | 2.5 s     | 0.23                                   |
+| whisper-base | WebGPU  | fp32 encoder, q4 decoder | 7.0 s     | 0.63                                   |
+| whisper-base | WASM    | q4                       | 6.1 s     | 0.55                                   |
+| whisper-base | WASM    | q8                       |           | onnxruntime will not build the session |
+
+Two surprises. Quantising the encoder to q4 made it nearly three times faster than the fp32
+encoder the transformers.js examples use, and cut the download from 206 MB to 142 MB, so q4
+is now the default. And the q8 decoder, which is the usual WASM choice, does not load at all
+on this onnxruntime version.
+
+The number that actually matters for streaming is not the ratio, though. It is what a single
+pass costs:
+
+| Audio in the window | Inference |
+| ------------------- | --------- |
+| 2 s                 | 1.3 s     |
+| 5 s                 | 1.4 s     |
+| 11 s                | 2.1 s     |
+
+Whisper's encoder always runs over a padded 30-second window, so a pass costs about 1.2
+seconds whatever you feed it. That puts a floor under the window step: on this machine,
+whisper-base cannot be re-run more often than roughly every 1.3 seconds, and the 600 ms end
+of the budget table needs a smaller model. Week 2 has to design around that rather than
+hope.
 
 ## Status
 
-Week 0 of six. What exists:
+Week 1 of six. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
-- `AudioWorklet` capture with a level meter, so the audio path is provably alive
-- a polyphase resampler to 16 kHz with the anti-alias tests that justify writing one
+- `AudioWorklet` capture with a level meter
+- a polyphase resampler to 16 kHz, with the anti-alias tests that justify writing one
+- a WAV reader and a file-backed `AudioSource`, so the pipeline can run without a browser
+- Whisper in a worker on WebGPU or WASM, transcribing a whole file and reporting its cost
 
-What does not exist yet: the model, voice activity detection, windowing, the stabiliser, the
-transcript. In other words, the transcription.
+What does not exist yet: voice activity detection, windowing, the stabiliser, and therefore
+anything live. You can transcribe a file. You cannot yet talk to it.
 
 ## Running it
 
@@ -50,19 +82,19 @@ pnpm install
 pnpm dev
 ```
 
-Then allow the microphone and press Start. The meter should move. That is the whole feature
-set today.
+Pick a file and a model. The weights download once, then stay in the browser cache, so the
+first run is slow and the rest are not.
 
 ## Layout
 
 ```
-packages/core   audio sources, resampling, and later VAD, chunking, the stabiliser
-packages/app    Angular 22, zoneless, signals
+packages/core   audio sources, resampling, WAV, the inference engine and its worker protocol
+packages/app    Angular 22, zoneless, signals; owns the worklet asset and the Worker
 ```
 
-The pipeline sits behind an `AudioSource` adapter. In the browser it reads a microphone; in
-CI it will read a WAV file faster than real time, which is what makes accuracy measurable
-without a human in the loop.
+Audio sits behind an `AudioSource` adapter and the model behind a worker protocol. Neither
+knows about the other, and neither knows whether a person or a fixture is on the far end.
+That is what makes the week 5 accuracy run possible at all.
 
 ## Things it will not do
 

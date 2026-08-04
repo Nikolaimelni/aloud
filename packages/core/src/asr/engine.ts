@@ -2,8 +2,8 @@ import { pipeline } from '@huggingface/transformers';
 import { AloudError } from '../errors';
 import type {
   AsrDevice,
-  AsrDtype,
   AsrModelSpec,
+  AsrPrecision,
   ModelProgress,
   Transcript,
   TranscribeOptions,
@@ -14,6 +14,14 @@ type Transcriber = Awaited<ReturnType<typeof pipeline<'automatic-speech-recognit
 /** Whisper only ever sees 30-second windows, so anything longer is chunked with an overlap. */
 const CHUNK_SECONDS = 30;
 const STRIDE_SECONDS = 5;
+
+/**
+ * Measured on an 11 s clip with whisper-base on an AMD GCN5 GPU: q4 everywhere runs at 0.23x
+ * real time and pulls 142 MB, against 0.63x and 206 MB for the fp32 encoder that the
+ * transformers.js examples reach for. On WASM the q8 decoder will not even build a session,
+ * onnxruntime rejects the quantised graph. So q4, until the week 5 bench argues otherwise.
+ */
+const DEFAULT_DTYPE: AsrPrecision = 'q4';
 
 export class WhisperEngine {
   private transcriber: Transcriber | null = null;
@@ -32,7 +40,7 @@ export class WhisperEngine {
     try {
       this.transcriber = await pipeline('automatic-speech-recognition', spec.model, {
         device,
-        dtype: spec.dtype ?? defaultDtype(device),
+        dtype: spec.dtype ?? DEFAULT_DTYPE,
         progress_callback: (info) => {
           if (info.status === 'progress') {
             onProgress({ file: info.file, loaded: info.loaded, total: info.total });
@@ -87,13 +95,4 @@ export async function detectDevice(): Promise<AsrDevice> {
   } catch {
     return 'wasm';
   }
-}
-
-/**
- * On WebGPU the encoder stays fp32: it runs once per window and quantising it costs more
- * accuracy than it saves time, while the decoder runs once per token and takes q4 quietly.
- * WASM gets q8 throughout because there the download size hurts more than the arithmetic.
- */
-export function defaultDtype(device: AsrDevice): AsrDtype {
-  return device === 'webgpu' ? { encoder_model: 'fp32', decoder_model_merged: 'q4' } : 'q8';
 }
