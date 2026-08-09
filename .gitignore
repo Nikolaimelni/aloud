@@ -3,6 +3,9 @@ dist/
 .angular/
 coverage/
 playwright-report/
+
+# local audio to measure against; the real fixture set lands in packages/bench
+packages/app/public/fixtures/
 test-results/
 *.tsbuildinfo
 

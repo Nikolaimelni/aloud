@@ -28,22 +28,37 @@ The first measurements say the low end of that window row is wishful. See below.
 
 ## First numbers
 
-One laptop, AMD GCN5 GPU, Chromium 152, one 11-second English clip. This is not the
-benchmark harness, which arrives in week 5 with several languages and a word error rate.
-It is enough to know whether the idea works at all.
+One laptop, AMD GCN5 GPU, 12 CPU threads, Chromium 152, one 11-second English clip,
+whisper-base at q4. Median of four warm runs; the spread across runs is about 10%, and the
+first run after loading a model is roughly 40% slower while shaders compile.
 
-| Model        | Backend | Weights                  | Inference | Real-time factor                       |
-| ------------ | ------- | ------------------------ | --------- | -------------------------------------- |
-| whisper-tiny | WebGPU  | fp32 encoder, q4 decoder | 1.7 s     | 0.15                                   |
-| whisper-base | WebGPU  | q4                       | 2.5 s     | 0.23                                   |
-| whisper-base | WebGPU  | fp32 encoder, q4 decoder | 7.0 s     | 0.63                                   |
-| whisper-base | WASM    | q4                       | 6.1 s     | 0.55                                   |
-| whisper-base | WASM    | q8                       |           | onnxruntime will not build the session |
+| Backend | Cross-origin isolated | Real-time factor |
+| ------- | --------------------- | ---------------- |
+| WASM    | yes                   | 0.28             |
+| WASM    | no                    | 0.49             |
+| WebGPU  | yes                   | 0.63             |
+| WebGPU  | no                    | 0.62             |
 
-Two surprises. Quantising the encoder to q4 made it nearly three times faster than the fp32
-encoder the transformers.js examples use, and cut the download from 206 MB to 142 MB, so q4
-is now the default. And the q8 decoder, which is the usual WASM choice, does not load at all
-on this onnxruntime version.
+Three things came out of this, and two of them were not what I expected.
+
+Quantising the encoder to q4 is nearly three times faster than the fp32 encoder the
+transformers.js examples use, and cuts the download from 206 MB to 142 MB. That is now the
+default. The q8 decoder, which is the usual choice on WASM, does not load at all on this
+onnxruntime version.
+
+Cross-origin isolation is worth having. It lets onnxruntime start its WASM thread pool,
+which nearly halves WASM inference. It costs nothing on WebGPU. The headers are
+`COOP: same-origin` and `COEP: credentialless`; the credentialless variant is what lets the
+model weights still come from a CDN, and Safari does not support it, so Safari runs
+single-threaded.
+
+And WASM on twelve cores beats this laptop's GPU by two to one. I would not have guessed
+that, and I would have shipped `auto` picking WebGPU without checking. It still does, because
+on a machine with a real GPU that is the right guess, but the backend is a visible setting
+and the week 5 benchmark is what will settle it.
+
+An earlier single run showed 0.23 on WebGPU and I nearly wrote it down. Repeated runs put it
+at 0.62. One sample is not a measurement.
 
 The number that actually matters for streaming is not the ratio, though. It is what a single
 pass costs:
@@ -55,23 +70,23 @@ pass costs:
 | 11 s                | 2.1 s     |
 
 Whisper's encoder always runs over a padded 30-second window, so a pass costs about 1.2
-seconds whatever you feed it. That puts a floor under the window step: on this machine,
-whisper-base cannot be re-run more often than roughly every 1.3 seconds, and the 600 ms end
-of the budget table needs a smaller model. Week 2 has to design around that rather than
-hope.
+seconds whatever you feed it. That puts a floor under the window step: whisper-base cannot be
+re-run more often than roughly every 1.3 seconds here, and the 600 ms end of the budget table
+needs a smaller model.
 
 ## Status
 
-Week 1 of six. What exists:
+Week 2 of six, partway. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
 - a polyphase resampler to 16 kHz, with the anti-alias tests that justify writing one
 - a WAV reader and a file-backed `AudioSource`, so the pipeline can run without a browser
 - Whisper in a worker on WebGPU or WASM, transcribing a whole file and reporting its cost
+- the sliding window chunker and the local-agreement stabiliser, with their tests
 
-What does not exist yet: voice activity detection, windowing, the stabiliser, and therefore
-anything live. You can transcribe a file. You cannot yet talk to it.
+What does not exist yet: voice activity detection, and the wiring that turns those last two
+into a live transcript. You can transcribe a file. You cannot yet talk to it.
 
 ## Running it
 
