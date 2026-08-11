@@ -7,7 +7,9 @@ export type AloudErrorCode =
   | 'unsupported-wav-format'
   | 'no-backend'
   | 'model-load-failed'
-  | 'inference-failed';
+  | 'inference-failed'
+  | 'vad-load-failed'
+  | 'vad-failed';
 
 export class AloudError extends Error {
   readonly code: AloudErrorCode;

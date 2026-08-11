@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { MODELS, PRECISIONS, TranscribeStore } from './transcribe-store';
+import { MODELS, ModelSettings, PRECISIONS } from '../model/model-settings';
+import { TranscribeStore } from './transcribe-store';
 
 @Component({
   selector: 'aloud-transcribe-panel',
@@ -9,6 +10,7 @@ import { MODELS, PRECISIONS, TranscribeStore } from './transcribe-store';
 })
 export class TranscribePanel {
   protected readonly store = inject(TranscribeStore);
+  protected readonly settings = inject(ModelSettings);
   protected readonly models = MODELS;
   protected readonly precisions = PRECISIONS;
 
@@ -18,11 +20,11 @@ export class TranscribePanel {
   }
 
   protected setModel(event: Event): void {
-    this.store.model.set(value(event));
+    this.settings.model.set(value(event));
   }
 
   protected setLanguage(event: Event): void {
-    this.store.language.set(value(event));
+    this.settings.language.set(value(event));
   }
 
   protected setTranslate(event: Event): void {
@@ -32,14 +34,14 @@ export class TranscribePanel {
   protected setPrecision(event: Event): void {
     const chosen = value(event);
     for (const precision of PRECISIONS) {
-      if (precision === chosen) this.store.precision.set(precision);
+      if (precision === chosen) this.settings.precision.set(precision);
     }
   }
 
   protected setDevice(event: Event): void {
     const chosen = value(event);
     if (chosen === 'auto' || chosen === 'webgpu' || chosen === 'wasm') {
-      this.store.device.set(chosen);
+      this.settings.device.set(chosen);
     }
   }
 

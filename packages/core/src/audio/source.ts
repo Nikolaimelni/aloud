@@ -8,7 +8,12 @@ export interface AudioFrame {
   readonly time: number;
 }
 
-export type FrameHandler = (frame: AudioFrame) => void;
+/**
+ * A handler may return a promise. A file source waits for it, which paces the file to
+ * whatever the pipeline can actually sustain; a microphone ignores it, because audio arrives
+ * whether or not anyone is ready.
+ */
+export type FrameHandler = (frame: AudioFrame) => void | Promise<void>;
 
 /**
  * The pipeline never learns where audio came from. In the browser this is a microphone

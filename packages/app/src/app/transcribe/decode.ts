@@ -31,7 +31,9 @@ function isRiff(data: ArrayBuffer): boolean {
 
 async function collect(source: WavSource): Promise<Float32Array> {
   const frames: AudioFrame[] = [];
-  await source.start((frame) => frames.push(frame));
+  await source.start((frame) => {
+    frames.push(frame);
+  });
   await source.finished;
 
   const out = new Float32Array(frames.reduce((total, frame) => total + frame.samples.length, 0));

@@ -52,6 +52,16 @@ export class Stabilizer {
     return this.state;
   }
 
+  /**
+   * No more audio is coming, so the last guess is the best there will ever be. Promote it
+   * rather than leaving a sentence hanging in provisional grey.
+   */
+  finish(): StabilizerState {
+    this.settled.push(...this.previous);
+    this.previous = [];
+    return this.state;
+  }
+
   reset(): void {
     this.settled.length = 0;
     this.previous = [];

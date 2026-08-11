@@ -7,7 +7,7 @@
 <div class="options">
   <label>
     Model
-    <select [value]="store.model()" [disabled]="store.busy()" (change)="setModel($event)">
+    <select [value]="settings.model()" [disabled]="store.busy()" (change)="setModel($event)">
       @for (model of models; track model) {
         <option [value]="model">{{ shortName(model) }}</option>
       }
@@ -16,7 +16,7 @@
 
   <label>
     Backend
-    <select [value]="store.device()" [disabled]="store.busy()" (change)="setDevice($event)">
+    <select [value]="settings.device()" [disabled]="store.busy()" (change)="setDevice($event)">
       <option value="auto">auto</option>
       <option value="webgpu">webgpu</option>
       <option value="wasm">wasm</option>
@@ -25,7 +25,11 @@
 
   <label>
     Precision
-    <select [value]="store.precision()" [disabled]="store.busy()" (change)="setPrecision($event)">
+    <select
+      [value]="settings.precision()"
+      [disabled]="store.busy()"
+      (change)="setPrecision($event)"
+    >
       @for (precision of precisions; track precision) {
         <option [value]="precision">{{ precision }}</option>
       }
@@ -38,7 +42,7 @@
       type="text"
       placeholder="auto"
       size="8"
-      [value]="store.language()"
+      [value]="settings.language()"
       [disabled]="store.busy()"
       (input)="setLanguage($event)"
     />

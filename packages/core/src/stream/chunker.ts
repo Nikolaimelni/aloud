@@ -84,6 +84,19 @@ export class Chunker {
     };
   }
 
+  /** Hand over whatever is left, step or no step. For the end of a recording. */
+  flush(): AudioWindow | null {
+    if (this.length === 0) return null;
+
+    const from = Math.max(0, this.length - Math.round(this.maxWindow * TARGET_SAMPLE_RATE));
+    this.lastWindowAt = this.heardUntil;
+
+    return {
+      samples: this.data.slice(from, this.length),
+      start: this.bufferStart + from / TARGET_SAMPLE_RATE,
+    };
+  }
+
   /** Everything before this second is settled, so stop carrying it. */
   commit(until: number): void {
     const drop = Math.min(

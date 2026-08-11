@@ -1,22 +1,14 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { AloudError } from '@aloud/core/errors';
 import { AsrClient } from '@aloud/core/asr/worker-client';
 import type {
   AsrDevice,
-  AsrPrecision,
   ModelProgress,
   Transcript,
   TranscribeOptions,
 } from '@aloud/core/asr/protocol';
+import { ModelSettings } from '../model/model-settings';
 import { decodeToMono16k, secondsOf } from './decode';
-
-export const MODELS = [
-  'onnx-community/whisper-tiny',
-  'onnx-community/whisper-base',
-  'onnx-community/whisper-small',
-] as const;
-
-export const PRECISIONS = ['auto', 'fp32', 'fp16', 'q8', 'q4'] as const;
 
 export type Phase = 'idle' | 'decoding' | 'loading' | 'running' | 'done' | 'error';
 
@@ -29,6 +21,8 @@ export interface RunStats {
 
 @Injectable({ providedIn: 'root' })
 export class TranscribeStore {
+  private readonly settings = inject(ModelSettings);
+
   private client: AsrClient | null = null;
   private loadedKey: string | null = null;
   private loadMs = 0;
@@ -36,10 +30,6 @@ export class TranscribeStore {
 
   private readonly active = signal<AsrDevice | null>(null);
 
-  readonly model = signal<string>('onnx-community/whisper-base');
-  readonly device = signal<AsrDevice | 'auto'>('auto');
-  readonly precision = signal<AsrPrecision | 'auto'>('auto');
-  readonly language = signal('');
   readonly translate = signal(false);
 
   readonly phase = signal<Phase>('idle');
@@ -89,7 +79,7 @@ export class TranscribeStore {
   }
 
   private async ready(): Promise<AsrClient> {
-    const key = `${this.model()}|${this.device()}|${this.precision()}`;
+    const key = this.settings.key();
     const existing = this.client;
     if (existing && this.loadedKey === key) {
       return existing;
@@ -106,12 +96,7 @@ export class TranscribeStore {
     this.client = client;
 
     this.phase.set('loading');
-    const precision = this.precision();
-    const loaded = await client.load({
-      model: this.model(),
-      device: this.device(),
-      ...(precision === 'auto' ? {} : { dtype: precision }),
-    });
+    const loaded = await client.load(this.settings.spec());
 
     this.loadedKey = key;
     this.loadMs = loaded.elapsedMs;
@@ -125,7 +110,7 @@ export class TranscribeStore {
   }
 
   private transcribeOptions(): TranscribeOptions {
-    const language = this.language().trim();
+    const language = this.settings.language().trim();
     return {
       task: this.translate() ? 'translate' : 'transcribe',
       timestamps: true,

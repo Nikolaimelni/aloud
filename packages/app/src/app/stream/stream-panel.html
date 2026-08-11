@@ -1,0 +1,81 @@
+<h2>Stream a file</h2>
+<p class="hint">
+  The same path live audio will take in week 3: voice activity, a sliding window, and a stabiliser
+  that only prints a word once two passes agree on it. WAV only for now.
+</p>
+
+<div class="options">
+  <label>
+    Speed
+    <select [disabled]="running()" (change)="setSpeed($event)">
+      <option value="fast">as fast as it keeps up</option>
+      <option value="real">real time</option>
+    </select>
+  </label>
+
+  <label>
+    Window step
+    <input
+      type="number"
+      min="0.5"
+      max="10"
+      step="0.1"
+      size="4"
+      [value]="store.stepSeconds()"
+      [disabled]="running()"
+      (change)="setStep($event)"
+    />
+    s
+  </label>
+
+  <input
+    class="file"
+    type="file"
+    accept=".wav,audio/wav"
+    [disabled]="running()"
+    (change)="choose($event)"
+  />
+
+  @if (store.phase() === 'running') {
+    <button type="button" (click)="store.stop()">Stop</button>
+  }
+</div>
+
+@if (store.download(); as download) {
+  <p class="status">
+    Downloading weights, {{ megabytes(download.loaded) }} of {{ megabytes(download.total) }} MB
+  </p>
+}
+
+@if (store.error(); as text) {
+  <p class="error" role="alert">{{ text }}</p>
+}
+
+@if (store.passes() > 0 || running()) {
+  <dl class="stats">
+    <div>
+      <dt>passes</dt>
+      <dd>{{ store.passes() }}</dd>
+    </div>
+    <div>
+      <dt>last pass</dt>
+      <dd>{{ seconds(store.lastPassMs() / 1000) }} s</dd>
+    </div>
+    <div>
+      <dt>backlog</dt>
+      <dd>{{ seconds(store.backlog()) }} s</dd>
+    </div>
+  </dl>
+
+  <p class="transcript" aria-live="polite">
+    <span class="confirmed">{{ store.confirmed() }}</span>
+    @if (store.pending()) {
+      <span class="guess"> {{ store.pending() }}</span>
+    }
+  </p>
+
+  <p class="legend">
+    <span class="swatch confirmed"></span> two passes agreed
+    <span class="swatch guess"></span> still a guess
+  </p>
+}

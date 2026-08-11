@@ -48,7 +48,9 @@ function wav(sampleRate: number, seconds: number): ArrayBuffer {
 
 async function collect(source: WavSource): Promise<AudioFrame[]> {
   const frames: AudioFrame[] = [];
-  await source.start((frame) => frames.push(frame));
+  await source.start((frame) => {
+    frames.push(frame);
+  });
   await source.finished;
   return frames;
 }

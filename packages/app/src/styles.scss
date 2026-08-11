@@ -9,6 +9,8 @@
   --ink-3: #7e798f;
   --accent: #4a42c2;
   --alarm: #a32a2a;
+  --partial: #96631b;
+  --partial-soft: #f6ebd8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +23,8 @@
     --ink-3: #7c7791;
     --accent: #9b93f5;
     --alarm: #e47c7c;
+    --partial: #d9a755;
+    --partial-soft: #2b2314;
   }
 }
 

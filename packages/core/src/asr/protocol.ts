@@ -17,7 +17,7 @@ export interface TranscribeOptions {
   /** Whisper language name or code. Leave it out and the model guesses, badly, on short audio. */
   readonly language?: string;
   readonly task?: 'transcribe' | 'translate';
-  readonly timestamps?: boolean;
+  readonly timestamps?: boolean | 'word';
 }
 
 export interface TranscriptChunk {

@@ -65,7 +65,7 @@ export class WavSource implements AudioSource {
       const block = resampler.process(samples.subarray(at, end));
 
       if (block.length > 0) {
-        onFrame({ samples: block, time: Math.max(0, produced / TARGET_SAMPLE_RATE - delay) });
+        await onFrame({ samples: block, time: Math.max(0, produced / TARGET_SAMPLE_RATE - delay) });
         produced += block.length;
       }
 
