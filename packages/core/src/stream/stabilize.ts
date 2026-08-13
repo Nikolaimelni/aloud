@@ -20,6 +20,13 @@ const LONGEST_LOOP = 6;
 const OVERLAP_TOLERANCE = 0.1;
 
 /**
+ * Audio kept behind the first unconfirmed word. A window that starts exactly on a word start
+ * hands the model a word with nothing in front of it, and it mishears it: in testing, cutting
+ * flush lost "Americans" out of "my fellow Americans" entirely.
+ */
+const CONTEXT_MARGIN = 0.4;
+
+/**
  * LocalAgreement-2. Every window produces a fresh guess at the same stretch of speech; a word
  * is only printed as final once two consecutive guesses put it in the same place. Everything
  * after that stays visibly provisional, because it will change.
@@ -31,10 +38,21 @@ export class Stabilizer {
   private readonly settled: Word[] = [];
   private previous: readonly Word[] = [];
 
-  /** End time of the last confirmed word. The chunker drops audio behind it. */
+  /** End of the last confirmed word. Words that finish before this belong to settled audio. */
   get confirmedUntil(): number {
     const last = this.settled.at(-1);
     return last ? last.end : 0;
+  }
+
+  /**
+   * How far the audio buffer can be trimmed. Deliberately earlier than `confirmedUntil`: it
+   * stops at the start of the first word still in doubt, so a guess that is about to be
+   * revised still has the audio it was made from.
+   */
+  get keepAudioFrom(): number {
+    const first = this.previous[0];
+    const from = first ? Math.min(first.start, this.confirmedUntil) : this.confirmedUntil;
+    return Math.max(0, from - CONTEXT_MARGIN);
   }
 
   get state(): StabilizerState {

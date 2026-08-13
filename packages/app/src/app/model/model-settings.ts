@@ -1,10 +1,15 @@
 import { Injectable, signal } from '@angular/core';
 import type { AsrDevice, AsrModelSpec, AsrPrecision } from '@aloud/core/asr/protocol';
 
+/**
+ * The `_timestamped` exports carry cross-attentions, which is the only way to get a time per
+ * word rather than per phrase. The streaming stabiliser needs word times to know how much
+ * audio it can stop carrying, so both panels use the same variant.
+ */
 export const MODELS = [
-  'onnx-community/whisper-tiny',
-  'onnx-community/whisper-base',
-  'onnx-community/whisper-small',
+  'onnx-community/whisper-tiny_timestamped',
+  'onnx-community/whisper-base_timestamped',
+  'onnx-community/whisper-small_timestamped',
 ] as const;
 
 export const PRECISIONS = ['auto', 'fp32', 'fp16', 'q8', 'q4'] as const;
@@ -12,7 +17,7 @@ export const PRECISIONS = ['auto', 'fp32', 'fp16', 'q8', 'q4'] as const;
 /** Shared by both panels, so the controls sit in one place and mean one thing. */
 @Injectable({ providedIn: 'root' })
 export class ModelSettings {
-  readonly model = signal<string>('onnx-community/whisper-base');
+  readonly model = signal<string>('onnx-community/whisper-base_timestamped');
   readonly device = signal<AsrDevice | 'auto'>('auto');
   readonly precision = signal<AsrPrecision | 'auto'>('auto');
   readonly language = signal('');

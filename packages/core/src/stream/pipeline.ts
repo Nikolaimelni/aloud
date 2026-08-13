@@ -115,7 +115,7 @@ export class StreamingTranscriber {
       })),
     );
 
-    this.chunker.commit(this.stabilizer.confirmedUntil);
+    this.chunker.commit(this.stabilizer.keepAudioFrom);
     this.emit(state);
   }
 

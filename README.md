@@ -74,19 +74,40 @@ seconds whatever you feed it. That puts a floor under the window step: whisper-b
 re-run more often than roughly every 1.3 seconds here, and the 600 ms end of the budget table
 needs a smaller model.
 
+## How the streaming part works
+
+Whisper is not a streaming model. It reads a window of audio and writes the whole window out,
+so the only way to get text while someone is still talking is to run it again and again over
+a window that keeps moving, and then decide which part of each answer to believe.
+
+The rule is local agreement: a word is printed as final once two consecutive passes put it in
+the same place. Everything after that is shown as a guess, in amber, because it will change.
+Silero voice activity detection sits in front, and its job is not to find word boundaries but
+to stop the model running at all when nobody is talking, which is when Whisper starts
+inventing "thank you for watching" out of room tone.
+
+Two things that only turned up once it ran. The window has to keep a little audio behind the
+first unconfirmed word, not cut flush against it: with a flush cut the model lost "Americans"
+out of "my fellow Americans" every time, because the word arrived with no run-up. And word
+level timestamps need the `_timestamped` model exports, which carry the cross-attentions that
+the alignment is computed from; the ordinary exports throw.
+
 ## Status
 
-Week 2 of six, partway. What exists:
+Week 2 of six. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
 - a polyphase resampler to 16 kHz, with the anti-alias tests that justify writing one
 - a WAV reader and a file-backed `AudioSource`, so the pipeline can run without a browser
 - Whisper in a worker on WebGPU or WASM, transcribing a whole file and reporting its cost
+- Silero voice activity detection in a second worker
 - the sliding window chunker and the local-agreement stabiliser, with their tests
+- all of it joined up: a WAV file streams through and the transcript grows without rewriting
+  itself
 
-What does not exist yet: voice activity detection, and the wiring that turns those last two
-into a live transcript. You can transcribe a file. You cannot yet talk to it.
+What does not exist yet: the microphone is still wired to a level meter and nothing else, and
+there is no export, no timestamps in the interface, no benchmark. Weeks 3 to 5.
 
 ## Running it
 

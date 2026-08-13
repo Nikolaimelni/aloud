@@ -49,6 +49,19 @@ describe('Stabilizer', () => {
     expect(state.pending).toEqual([]);
   });
 
+  it('keeps the audio behind a word it is still unsure about', () => {
+    const stabilizer = new Stabilizer();
+    stabilizer.push(words('one two three'));
+    stabilizer.push(words('one two three four'));
+
+    expect(stabilizer.confirmedUntil).toBeCloseTo(0.9, 6);
+    expect(stabilizer.keepAudioFrom).toBeCloseTo(0.5, 6);
+
+    stabilizer.push(words('one two three four five'));
+    // "five" starts at 1.2 and is only a guess, so its audio stays, plus the margin in front.
+    expect(stabilizer.keepAudioFrom).toBeCloseTo(0.8, 6);
+  });
+
   it('drops words that belong to audio it has already settled', () => {
     const stabilizer = new Stabilizer();
     stabilizer.push(words('one two three'));
