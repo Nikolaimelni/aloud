@@ -15,16 +15,38 @@ a few points worse, but nothing to upload and nothing to delete afterwards.
 
 ## Latency, honestly
 
-Real-time here does not mean instant. This is the budget the design is aimed at.
+Real-time here does not mean instant. Capture is cheap and the model is not.
 
-| Stage            | Budget        | Why                                                                                              |
-| ---------------- | ------------- | ------------------------------------------------------------------------------------------------ |
-| Capture buffer   | ~60 ms        | Worklet frames plus resampling from 48 kHz to the 16 kHz the model wants                         |
-| Voice activity   | ~100 ms       | The detector needs enough signal to tell speech from a chair creaking                            |
-| Inference window | 600-1200 ms   | Whisper is an encoder-decoder over a window, not a streaming model. Window step is the real dial |
-| Stabilisation    | one more step | A word is only printed as confirmed once two consecutive passes agree on it                      |
+| Stage                       | Cost                          |
+| --------------------------- | ----------------------------- |
+| Capture, resample to 16 kHz | ~60 ms                        |
+| Voice activity              | ~100 ms                       |
+| One pass over the window    | 1.3-2.1 s, mostly fixed       |
+| Confirmation                | that pass has to happen twice |
 
-The first measurements say the low end of that window row is wishful. See below.
+A word is printed as final only when two consecutive passes agree on it, so in the worst
+case it waits out a window step, then a pass, then another step, then another pass.
+
+Played at real speed, whisper-base on WASM with a 1.5 second step, the confirmed text ran
+**3.9 to 4.7 seconds** behind the speaker with one and a half to three seconds of audio
+queued behind it. That is three or four times the budget I wrote down before measuring
+anything, and I have left the original numbers below so the difference is visible.
+
+The cause is the fixed cost of a pass. Whisper's encoder pads every window to thirty seconds,
+so halving the window does not halve the work. Raising the step to 2.2 seconds made the lag
+worse rather than better, because the lag is two steps plus two passes and the step is the
+part you pay for twice.
+
+Where that leaves it: on this laptop the loop sits at break-even, a real-time factor of 0.95
+to 1.07 depending on the model. It keeps up, but only just, and a slower machine will not.
+whisper-tiny buys about ten percent and costs noticeably more errors: it heard "my fellow
+America" and "as not what your country can do". Getting this to a second of lag needs either
+a real GPU or a model built for streaming, and that is a version 2 question rather than
+something the window step can fix.
+
+Note also that streaming costs several times what one pass costs. Transcribing the same clip
+in one go is 0.28 real time; streaming it is 0.57 to 1.07, because every second of audio goes
+through the model two or three times before it settles.
 
 ## First numbers
 
@@ -94,7 +116,7 @@ the alignment is computed from; the ordinary exports throw.
 
 ## Status
 
-Week 2 of six. What exists:
+Week 3 of six. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
@@ -103,11 +125,13 @@ Week 2 of six. What exists:
 - Whisper in a worker on WebGPU or WASM, transcribing a whole file and reporting its cost
 - Silero voice activity detection in a second worker
 - the sliding window chunker and the local-agreement stabiliser, with their tests
-- all of it joined up: a WAV file streams through and the transcript grows without rewriting
-  itself
+- one live view: microphone, another tab's audio, or a WAV file, all through the same
+  pipeline, with confirmed text in black and the current guess in amber
+- meters for what it costs: backend, real-time factor, how far the confirmed text is running
+  behind, how much audio is queued
 
-What does not exist yet: the microphone is still wired to a level meter and nothing else, and
-there is no export, no timestamps in the interface, no benchmark. Weeks 3 to 5.
+What does not exist yet: no export, no timestamps in the interface, no search, no benchmark
+harness. Weeks 4 and 5.
 
 ## Running it
 
@@ -124,8 +148,9 @@ first run is slow and the rest are not.
 ## Layout
 
 ```
-packages/core   audio sources, resampling, WAV, the inference engine and its worker protocol
-packages/app    Angular 22, zoneless, signals; owns the worklet asset and the Worker
+packages/core   audio sources, resampling, WAV, voice activity, windowing, the stabiliser,
+                the inference engine and both worker protocols
+packages/app    Angular 22, zoneless, signals; owns the worklet asset and the two Workers
 ```
 
 Audio sits behind an `AudioSource` adapter and the model behind a worker protocol. Neither

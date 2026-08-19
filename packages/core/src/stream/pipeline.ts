@@ -10,6 +10,10 @@ const DEFAULT_BACKPRESSURE = 5;
 export interface StreamUpdate extends StabilizerState {
   /** Seconds of audio that have not been through the model yet. */
   readonly backlogSeconds: number;
+  /** How far behind the confirmed text is running, in seconds of speech. */
+  readonly confirmedLagSeconds: number;
+  /** Seconds of audio the session has taken in so far. */
+  readonly heardSeconds: number;
   readonly lastPassMs: number;
   readonly passes: number;
 }
@@ -136,6 +140,8 @@ export class StreamingTranscriber {
     this.options.onUpdate({
       ...state,
       backlogSeconds: this.chunker.backlogSeconds,
+      confirmedLagSeconds: Math.max(0, this.chunker.heardUntil - this.stabilizer.confirmedUntil),
+      heardSeconds: this.chunker.heardUntil,
       lastPassMs: this.lastPassMs,
       passes: this.passes,
     });

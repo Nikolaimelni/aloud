@@ -1,0 +1,175 @@
+<div class="sources" role="group" aria-label="Audio source">
+  @for (option of sources; track option.kind) {
+    <button
+      type="button"
+      class="source"
+      [class.on]="store.source() === option.kind"
+      [disabled]="store.listening()"
+      (click)="pickSource(option.kind)"
+    >
+      {{ option.label }}
+    </button>
+  }
+</div>
+
+<p class="about">{{ about() }}</p>
+
+<div class="controls">
+  @if (store.source() === 'file') {
+    <input
+      class="file"
+      type="file"
+      accept=".wav,audio/wav"
+      [disabled]="store.listening()"
+      (change)="choose($event)"
+    />
+    <label class="check">
+      <input
+        type="checkbox"
+        [checked]="store.fasterThanReal()"
+        [disabled]="store.listening()"
+        (change)="setSpeed($event)"
+      />
+      faster than real time
+    </label>
+  } @else if (store.listening()) {
+    <button type="button" class="primary" (click)="store.stop()">Stop</button>
+  } @else {
+    <button type="button" class="primary" (click)="store.start()">Start listening</button>
+  }
+</div>
+
+@if (host.loading()) {
+  <div class="loading">
+    @if (host.download(); as progress) {
+      <p>
+        Downloading the model, {{ megabytes(progress.loaded) }} of
+        {{ megabytes(progress.total) }} MB
+      </p>
+      <progress [value]="progress.loaded" [max]="progress.total"></progress>
+    } @else {
+      <p>
+        Starting the model. {{ shortName(settings.model()) }} is about {{ sizeMb() }} MB the first
+        time and cached afterwards.
+      </p>
+    }
+    <p class="warn">On a phone plan, wait for wi-fi.</p>
+  </div>
+}
+
+@if (store.error(); as text) {
+  <p class="error" role="alert">{{ text }}</p>
+}
+
+@if (store.listening() && store.source() !== 'file') {
+  <aloud-level-meter [history]="store.levels()" />
+}
+
+<aloud-transcript
+  [confirmed]="store.confirmed()"
+  [pending]="store.pending()"
+  [placeholder]="placeholder()"
+/>
+
+<p class="legend">
+  <span class="swatch confirmed"></span> two passes agreed <span class="swatch guess"></span> still
+  a guess
+</p>
+
+@if (store.passes() > 0) {
+  <dl class="meters">
+    <div>
+      <dt>backend</dt>
+      <dd>{{ host.device() ?? '-' }}</dd>
+    </div>
+    <div>
+      <dt>real-time factor</dt>
+      <dd>{{ factor(store.realTimeFactor()) }}</dd>
+    </div>
+    <div>
+      <dt>confirmed lag</dt>
+      <dd>{{ seconds(store.lag()) }} s</dd>
+    </div>
+    <div>
+      <dt>backlog</dt>
+      <dd>{{ seconds(store.backlog()) }} s</dd>
+    </div>
+    <div>
+      <dt>passes</dt>
+      <dd>{{ store.passes() }}</dd>
+    </div>
+  </dl>
+}
+
+<details class="settings">
+  <summary>Model and window</summary>
+
+  <div class="options">
+    <label>
+      Model
+      <select [value]="settings.model()" [disabled]="store.listening()" (change)="setModel($event)">
+        @for (model of models; track model) {
+          <option [value]="model">{{ shortName(model) }}</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      Backend
+      <select
+        [value]="settings.device()"
+        [disabled]="store.listening()"
+        (change)="setDevice($event)"
+      >
+        <option value="auto">auto</option>
+        <option value="webgpu">webgpu</option>
+        <option value="wasm">wasm</option>
+      </select>
+    </label>
+
+    <label>
+      Precision
+      <select
+        [value]="settings.precision()"
+        [disabled]="store.listening()"
+        (change)="setPrecision($event)"
+      >
+        @for (precision of precisions; track precision) {
+          <option [value]="precision">{{ precision }}</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      Language
+      <input
+        type="text"
+        placeholder="auto"
+        size="8"
+        [value]="settings.language()"
+        [disabled]="store.listening()"
+        (input)="setLanguage($event)"
+      />
+    </label>
+
+    <label>
+      Window step
+      <input
+        type="number"
+        min="0.5"
+        max="10"
+        step="0.1"
+        size="4"
+        [value]="store.windowStep()"
+        [disabled]="store.listening()"
+        (change)="setStep($event)"
+      />
+      s
+    </label>
+  </div>
+
+  <p class="note">
+    A pass over the window costs about a second whatever the step, so a step under that builds a
+    backlog rather than reducing the lag.
+  </p>
+</details>

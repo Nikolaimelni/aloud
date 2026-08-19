@@ -14,6 +14,14 @@ export const MODELS = [
 
 export const PRECISIONS = ['auto', 'fp32', 'fp16', 'q8', 'q4'] as const;
 
+/** Megabytes at q4, measured from the repos. The quantised decoder is most of it, which is
+ * why tiny is not the saving it sounds like. */
+export const MODEL_SIZE_MB: Record<string, number> = {
+  'onnx-community/whisper-tiny_timestamped': 96,
+  'onnx-community/whisper-base_timestamped': 143,
+  'onnx-community/whisper-small_timestamped': 300,
+};
+
 /** Shared by both panels, so the controls sit in one place and mean one thing. */
 @Injectable({ providedIn: 'root' })
 export class ModelSettings {

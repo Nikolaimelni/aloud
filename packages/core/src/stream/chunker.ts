@@ -36,7 +36,7 @@ export class Chunker {
 
   /** Session time of data[0]. */
   private bufferStart = 0;
-  private heardUntil = 0;
+  private heard = 0;
   private lastWindowAt = 0;
   private lastSpeechAt = -1;
 
@@ -50,33 +50,38 @@ export class Chunker {
     return this.length / TARGET_SAMPLE_RATE;
   }
 
+  /** Session time of the newest sample it has been given. */
+  get heardUntil(): number {
+    return this.heard;
+  }
+
   /** Seconds of audio waiting for a window. Climbs when the model cannot keep up. */
   get backlogSeconds(): number {
-    return Math.max(0, this.heardUntil - this.lastWindowAt);
+    return Math.max(0, this.heard - this.lastWindowAt);
   }
 
   push(frame: AudioFrame, speech: boolean): void {
     this.append(frame.samples);
-    this.heardUntil = frame.time + frame.samples.length / TARGET_SAMPLE_RATE;
+    this.heard = frame.time + frame.samples.length / TARGET_SAMPLE_RATE;
     if (speech) {
-      this.lastSpeechAt = this.heardUntil;
+      this.lastSpeechAt = this.heard;
     }
   }
 
   take(): AudioWindow | null {
-    if (this.heardUntil - this.lastWindowAt < this.step) {
+    if (this.heard - this.lastWindowAt < this.step) {
       return null;
     }
 
     // Nobody spoke since the last window. Running the model on silence is how Whisper ends
     // up thanking you for watching.
     if (this.lastSpeechAt <= this.lastWindowAt) {
-      this.lastWindowAt = this.heardUntil;
+      this.lastWindowAt = this.heard;
       return null;
     }
 
     const from = Math.max(0, this.length - Math.round(this.maxWindow * TARGET_SAMPLE_RATE));
-    this.lastWindowAt = this.heardUntil;
+    this.lastWindowAt = this.heard;
 
     return {
       samples: this.data.slice(from, this.length),
@@ -89,7 +94,7 @@ export class Chunker {
     if (this.length === 0) return null;
 
     const from = Math.max(0, this.length - Math.round(this.maxWindow * TARGET_SAMPLE_RATE));
-    this.lastWindowAt = this.heardUntil;
+    this.lastWindowAt = this.heard;
 
     return {
       samples: this.data.slice(from, this.length),
@@ -113,7 +118,7 @@ export class Chunker {
   reset(): void {
     this.length = 0;
     this.bufferStart = 0;
-    this.heardUntil = 0;
+    this.heard = 0;
     this.lastWindowAt = 0;
     this.lastSpeechAt = -1;
   }

@@ -1,29 +1,10 @@
 <p class="eyebrow">on-device speech</p>
 <h1>Aloud</h1>
 <p class="tagline">
-  Whole files transcribe today. Live transcription is the point of the project and is not here yet.
+  Live transcription that never sends your audio anywhere. The model downloads once and runs on this
+  machine.
 </p>
 
 <section class="panel">
-  <h2>Microphone</h2>
-  <aloud-level-meter [history]="capture.history()" />
-
-  <div class="controls">
-    <button type="button" [disabled]="capture.state() === 'starting'" (click)="capture.toggle()">
-      {{ capture.state() === 'running' ? 'Stop' : 'Start' }}
-    </button>
-    <span class="status">{{ capture.status() }}</span>
-  </div>
-
-  @if (capture.error(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
-  }
-</section>
-
-<section class="panel">
-  <aloud-transcribe-panel />
-</section>
-
-<section class="panel">
-  <aloud-stream-panel />
+  <aloud-session />
 </section>
