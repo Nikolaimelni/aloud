@@ -1,0 +1,28 @@
+<div #scroller class="scroller" (scroll)="follow()">
+  @if (rows().length > 0 || pending()) {
+    @for (row of rows(); track row.start) {
+      <p class="line" [class.active]="row.active">
+        <button type="button" class="stamp" (click)="seek.emit(row.start)">{{ row.stamp }}</button>
+        <span class="text" aria-live="polite">
+          @for (part of row.parts; track $index) {
+            @if (part.hit) {
+              <mark>{{ part.text }}</mark>
+            } @else {
+              {{ part.text }}
+            }
+          }
+        </span>
+      </p>
+    }
+
+    @if (pending()) {
+      <p class="line">
+        <span class="stamp blank"></span>
+        <!-- Rewritten on every pass, so a screen reader is spared it. -->
+        <span class="text guess" aria-hidden="true">{{ pending() }}</span>
+      </p>
+    }
+  } @else {
+    <p class="empty">{{ placeholder() }}</p>
+  }
+</div>

@@ -91,6 +91,42 @@ aloud-level-meter {
   margin-bottom: 10px;
 }
 
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.search {
+  flex: 1 1 200px;
+  min-width: 160px;
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.count {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar button {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+
+.player {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+}
+
 .legend {
   margin: 12px 0 0;
   font-size: 11.5px;

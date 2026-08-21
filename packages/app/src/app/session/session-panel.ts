@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  type ElementRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { LevelMeter } from '../capture/level-meter';
 import { MODEL_SIZE_MB, MODELS, ModelSettings, PRECISIONS } from '../model/model-settings';
 import { ModelHost } from '../model/model-host';
@@ -15,7 +23,7 @@ const SOURCES: readonly SourceOption[] = [
   {
     kind: 'microphone',
     label: 'Microphone',
-    about: 'Whatever the browser hears. Speak and the text follows a second or so behind.',
+    about: 'Whatever the browser hears. Speak and the text follows a few seconds behind.',
   },
   {
     kind: 'tab',
@@ -45,6 +53,9 @@ export class SessionPanel {
   protected readonly sources = SOURCES;
   protected readonly models = MODELS;
   protected readonly precisions = PRECISIONS;
+  protected readonly playhead = signal(0);
+
+  private readonly player = viewChild<ElementRef<HTMLAudioElement>>('player');
 
   protected readonly about = computed(
     () => SOURCES.find((source) => source.kind === this.store.source())?.about ?? '',
@@ -56,6 +67,10 @@ export class SessionPanel {
     this.store.listening() ? 'Listening.' : 'Nothing yet.',
   );
 
+  protected readonly done = computed(
+    () => !this.store.listening() && this.store.segments().length > 0,
+  );
+
   protected choose(event: Event): void {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (file) void this.store.start(file);
@@ -63,6 +78,35 @@ export class SessionPanel {
 
   protected pickSource(kind: SourceKind): void {
     this.store.source.set(kind);
+  }
+
+  protected seekTo(seconds: number): void {
+    const audio = this.player()?.nativeElement;
+    if (!audio) return;
+    audio.currentTime = seconds;
+    void audio.play();
+  }
+
+  protected trackPlayhead(): void {
+    this.playhead.set(this.player()?.nativeElement.currentTime ?? 0);
+  }
+
+  protected download(): void {
+    const blob = new Blob([this.store.markdown()], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = this.store.filename();
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  protected setQuery(event: Event): void {
+    this.store.query.set(value(event));
+  }
+
+  protected setTranslate(event: Event): void {
+    this.store.translate.set((event.target as HTMLInputElement).checked);
   }
 
   protected setModel(event: Event): void {

@@ -134,3 +134,47 @@ function sampleReader(format: WavFormat): (view: DataView, at: number) => number
     `format ${format.code} at ${format.bits} bits is not one of the four we read`,
   );
 }
+
+/**
+ * The other direction: mono 16-bit PCM, which is what every player and every transcription
+ * tool will read, and half the size of keeping the floats.
+ */
+export function encodeWav(samples: Int16Array, sampleRate: number): ArrayBuffer {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  let at = 0;
+
+  const ascii = (text: string) => {
+    for (const character of text) view.setUint8(at++, character.charCodeAt(0));
+  };
+  const u32 = (value: number) => {
+    view.setUint32(at, value, true);
+    at += 4;
+  };
+  const u16 = (value: number) => {
+    view.setUint16(at, value, true);
+    at += 2;
+  };
+
+  ascii('RIFF');
+  u32(buffer.byteLength - 8);
+  ascii('WAVE');
+
+  ascii('fmt ');
+  u32(16);
+  u16(PCM);
+  u16(1);
+  u32(sampleRate);
+  u32(sampleRate * 2);
+  u16(2);
+  u16(16);
+
+  ascii('data');
+  u32(samples.length * 2);
+  for (const sample of samples) {
+    view.setInt16(at, sample, true);
+    at += 2;
+  }
+
+  return buffer;
+}

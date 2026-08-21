@@ -37,6 +37,16 @@
   } @else {
     <button type="button" class="primary" (click)="store.start()">Start listening</button>
   }
+
+  <label class="check">
+    <input
+      type="checkbox"
+      [checked]="store.translate()"
+      [disabled]="store.listening()"
+      (change)="setTranslate($event)"
+    />
+    translate to English
+  </label>
 </div>
 
 @if (host.loading()) {
@@ -65,16 +75,47 @@
   <aloud-level-meter [history]="store.levels()" />
 }
 
+@if (done()) {
+  <div class="toolbar">
+    <input
+      type="search"
+      class="search"
+      placeholder="Search the transcript"
+      [value]="store.query()"
+      (input)="setQuery($event)"
+    />
+    @if (store.query().trim()) {
+      <span class="count">{{ store.matches().length }} of {{ store.segments().length }} lines</span>
+    }
+    <button type="button" (click)="download()">Export Markdown</button>
+  </div>
+}
+
 <aloud-transcript
-  [confirmed]="store.confirmed()"
+  [segments]="store.segments()"
   [pending]="store.pending()"
+  [query]="store.query()"
+  [playhead]="playhead()"
   [placeholder]="placeholder()"
+  (seek)="seekTo($event)"
 />
 
 <p class="legend">
   <span class="swatch confirmed"></span> two passes agreed <span class="swatch guess"></span> still
   a guess
 </p>
+
+@if (store.recording(); as audio) {
+  <audio
+    #player
+    class="player"
+    controls
+    preload="metadata"
+    [src]="audio"
+    (timeupdate)="trackPlayhead()"
+  ></audio>
+  <p class="note">Click a timestamp to jump there. The recording never left the browser.</p>
+}
 
 @if (store.passes() > 0) {
   <dl class="meters">

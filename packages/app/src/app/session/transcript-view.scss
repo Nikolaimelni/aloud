@@ -1,0 +1,60 @@
+:host {
+  display: block;
+}
+
+.scroller {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.line {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 7px;
+  font-size: 16.5px;
+  line-height: 1.65;
+
+  &.active .text {
+    background: var(--accent-soft);
+  }
+}
+
+.stamp {
+  flex: none;
+  width: 52px;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+
+  &.blank {
+    cursor: default;
+  }
+}
+
+.text {
+  color: var(--ink);
+}
+
+.guess {
+  color: var(--partial);
+  background: var(--partial-soft);
+}
+
+mark {
+  background: var(--partial-soft);
+  color: var(--ink);
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 15px;
+}
