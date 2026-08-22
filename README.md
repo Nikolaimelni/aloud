@@ -116,7 +116,7 @@ the alignment is computed from; the ordinary exports throw.
 
 ## Status
 
-Week 3 of six. What exists:
+Week 4 of six. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
@@ -129,9 +129,16 @@ Week 3 of six. What exists:
   pipeline, with confirmed text in black and the current guess in amber
 - meters for what it costs: backend, real-time factor, how far the confirmed text is running
   behind, how much audio is queued
+- timestamps you can click to hear that moment again, search across the transcript, and a
+  Markdown export
+- a translate switch, which is the same model and the same pass: speak Russian, read English
+- the last ten sessions kept in IndexedDB, transcript and audio, reopenable
 
-What does not exist yet: no export, no timestamps in the interface, no search, no benchmark
-harness. Weeks 4 and 5.
+What does not exist yet. There is no summary; the plan calls for an extractive one picked by
+sentence embeddings, which means another model to download and has not been built. There is
+no service worker either, so the model weights survive a reload but the app shell does not:
+offline is half done. And there is no benchmark harness, which is week 5 and the point of the
+whole exercise.
 
 ## Running it
 
@@ -148,9 +155,10 @@ first run is slow and the rest are not.
 ## Layout
 
 ```
-packages/core   audio sources, resampling, WAV, voice activity, windowing, the stabiliser,
-                the inference engine and both worker protocols
-packages/app    Angular 22, zoneless, signals; owns the worklet asset and the two Workers
+packages/core   audio sources, resampling, WAV in and out, voice activity, windowing, the
+                stabiliser, the inference engine and both worker protocols
+packages/app    Angular 22, zoneless, signals; owns the worklet asset, the two Workers and
+                the IndexedDB archive
 ```
 
 Audio sits behind an `AudioSource` adapter and the model behind a worker protocol. Neither

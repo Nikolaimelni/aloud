@@ -13,12 +13,12 @@ import { clock, type Segment } from '@aloud/core/stream/transcript';
 /** Close enough to the bottom that the reader clearly wants to follow along. */
 const STICKY_PX = 24;
 
-interface Row {
+type Row = {
   readonly start: number;
   readonly stamp: string;
   readonly parts: readonly { text: string; hit: boolean }[];
   readonly active: boolean;
-}
+};
 
 @Component({
   selector: 'aloud-transcript',

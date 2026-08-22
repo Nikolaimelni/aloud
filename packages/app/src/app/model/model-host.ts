@@ -4,10 +4,10 @@ import { VadClient } from '@aloud/core/vad/worker-client';
 import type { AsrDevice, ModelProgress } from '@aloud/core/asr/protocol';
 import { ModelSettings } from './model-settings';
 
-export interface Loaded {
+export type Loaded = {
   readonly asr: AsrClient;
   readonly vad: VadClient;
-}
+};
 
 /** Owns the two workers so a session does not load the same weights twice. */
 @Injectable({ providedIn: 'root' })

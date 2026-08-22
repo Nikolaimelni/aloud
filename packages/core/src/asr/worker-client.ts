@@ -9,34 +9,37 @@ import type {
   TranscribeOptions,
 } from './protocol';
 
-export interface AsrClientOptions {
+export type AsrClientOptions = {
   readonly onProgress?: (progress: ModelProgress) => void;
-}
+};
 
-export interface LoadedModel {
+export type LoadedModel = {
   readonly device: AsrDevice;
   readonly elapsedMs: number;
-}
+};
 
-export interface TranscribeResult {
+export type TranscribeResult = {
   readonly transcript: Transcript;
   readonly elapsedMs: number;
-}
+};
 
-interface Pending {
+type Pending = {
   resolve: (event: AsrEvent) => void;
   reject: (error: Error) => void;
-}
+};
 
 /** Main-thread half of the worker protocol. Takes a Worker rather than making one. */
 export class AsrClient {
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
 
-  constructor(
-    private readonly worker: Worker,
-    private readonly options: AsrClientOptions = {},
-  ) {
+  private readonly worker: Worker;
+  private readonly options: AsrClientOptions;
+
+  constructor(worker: Worker, options: AsrClientOptions = {}) {
+    this.worker = worker;
+    this.options = options;
+
     worker.onmessage = (event: MessageEvent<AsrEvent>) => {
       this.receive(event.data);
     };

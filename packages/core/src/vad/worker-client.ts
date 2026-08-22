@@ -1,21 +1,25 @@
 import { AloudError } from '../errors';
 import { SILERO_VAD_URL, type VadEvent, type VadRequest, type VadTuning } from './protocol';
 
-export interface Verdict {
+export type Verdict = {
   readonly speech: boolean;
   readonly probability: number;
-}
+};
 
-interface Pending {
+type Pending = {
   resolve: (event: VadEvent) => void;
   reject: (error: Error) => void;
-}
+};
 
 export class VadClient {
   private nextId = 1;
   private readonly pending = new Map<number, Pending>();
 
-  constructor(private readonly worker: Worker) {
+  private readonly worker: Worker;
+
+  constructor(worker: Worker) {
+    this.worker = worker;
+
     worker.onmessage = (event: MessageEvent<VadEvent>) => {
       this.settle(event.data);
     };

@@ -49,8 +49,8 @@ export class SileroVad {
     });
 
     // Copy rather than hold onnxruntime's buffer, which it is entitled to reuse.
-    this.state = Float32Array.from(outputs['stateN'].data as ArrayLike<number>);
-    return (outputs['output'].data as ArrayLike<number>)[0];
+    this.state = Float32Array.from(outputs['stateN']!.data as ArrayLike<number>);
+    return (outputs['output']!.data as ArrayLike<number>)[0]!;
   }
 
   reset(): void {

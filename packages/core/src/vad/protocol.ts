@@ -2,14 +2,14 @@
 export const SILERO_VAD_URL =
   'https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx';
 
-export interface VadTuning {
+export type VadTuning = {
   /** Probability at which silence becomes speech. */
   readonly enter?: number;
   /** Probability at which speech becomes silence again. Lower, so it does not chatter. */
   readonly exit?: number;
   /** Keep calling it speech for this long after the probability drops. */
   readonly hangoverMs?: number;
-}
+};
 
 export type VadRequest =
   | { readonly kind: 'load'; readonly id: number; readonly url: string; readonly tuning: VadTuning }

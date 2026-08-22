@@ -1,0 +1,91 @@
+:host {
+  display: block;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.size {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid var(--rule);
+  }
+}
+
+.row {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.when {
+  flex: none;
+  width: 116px;
+  color: var(--ink-2);
+}
+
+.length {
+  flex: none;
+  width: 54px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.preview {
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plain {
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--alarm);
+  }
+}
+
+.note {
+  margin: 14px 0 0;
+  max-width: 58ch;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}

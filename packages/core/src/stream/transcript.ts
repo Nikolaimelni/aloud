@@ -1,17 +1,17 @@
 import type { Word } from './stabilize';
 
-export interface Segment {
+export type Segment = {
   readonly start: number;
   readonly end: number;
   readonly text: string;
-}
+};
 
-export interface SegmentOptions {
+export type SegmentOptions = {
   /** A pause longer than this starts a new line. */
   readonly gapSeconds?: number;
   /** Hard ceiling, so someone who never pauses does not become one paragraph. */
   readonly maxSeconds?: number;
-}
+};
 
 const GAP = 0.8;
 const MAX = 18;
@@ -28,9 +28,10 @@ export function toSegments(words: readonly Word[], options: SegmentOptions = {})
   let current: Word[] = [];
 
   const close = () => {
-    if (current.length === 0) return;
     const first = current[0];
     const last = current[current.length - 1];
+    if (!first || !last) return;
+
     segments.push({
       start: first.start,
       end: last.end,
@@ -44,7 +45,8 @@ export function toSegments(words: readonly Word[], options: SegmentOptions = {})
 
   for (const word of words) {
     const previous = current[current.length - 1];
-    if (previous && (word.start - previous.end > gap || word.end - current[0].start > max)) {
+    const opened = current[0];
+    if (previous && opened && (word.start - previous.end > gap || word.end - opened.start > max)) {
       close();
     }
     current.push(word);
@@ -54,12 +56,12 @@ export function toSegments(words: readonly Word[], options: SegmentOptions = {})
   return segments;
 }
 
-export interface MarkdownOptions {
+export type MarkdownOptions = {
   readonly title?: string;
   readonly recordedAt?: Date;
   readonly language?: string;
   readonly translated?: boolean;
-}
+};
 
 export function toMarkdown(segments: readonly Segment[], options: MarkdownOptions = {}): string {
   const lines: string[] = [`# ${options.title ?? 'Transcript'}`, ''];

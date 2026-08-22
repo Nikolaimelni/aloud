@@ -1,6 +1,6 @@
 import { TARGET_SAMPLE_RATE, type AudioFrame } from '../audio/source';
 
-export interface ChunkerOptions {
+export type ChunkerOptions = {
   /**
    * Seconds of new audio between windows. A pass costs the model about a second whatever
    * the window length, so a step below that just builds a queue. This is the dial.
@@ -8,13 +8,13 @@ export interface ChunkerOptions {
   readonly stepSeconds?: number;
   /** Ceiling, not the normal case: once text is confirmed the window shrinks back. */
   readonly maxWindowSeconds?: number;
-}
+};
 
-export interface AudioWindow {
+export type AudioWindow = {
   readonly samples: Float32Array;
   /** Session time of the first sample. */
   readonly start: number;
-}
+};
 
 const DEFAULT_STEP = 1.5;
 const DEFAULT_MAX_WINDOW = 20;

@@ -110,7 +110,7 @@ describe('Stabilizer', () => {
     }
 
     for (let i = 1; i < seen.length; i++) {
-      expect(seen[i].startsWith(seen[i - 1])).toBe(true);
+      expect(seen[i]!.startsWith(seen[i - 1]!)).toBe(true);
     }
     expect(seen.at(-1)).toBe('so the plan is to roll out');
   });

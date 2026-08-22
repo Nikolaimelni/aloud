@@ -5,9 +5,10 @@ import { tapFrames } from '@aloud/core/audio/tap';
 import { WavSource } from '@aloud/core/audio/wav-source';
 import { AloudError } from '@aloud/core/errors';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
-import { textOf, type Word } from '@aloud/core/stream/stabilize';
-import { toMarkdown, toSegments } from '@aloud/core/stream/transcript';
+import { textOf } from '@aloud/core/stream/stabilize';
+import { toMarkdown, toSegments, type Segment } from '@aloud/core/stream/transcript';
 import type { AudioFrame, AudioSource } from '@aloud/core/audio/source';
+import { Archive } from '../history/archive';
 import { ModelSettings } from '../model/model-settings';
 import { ModelHost } from '../model/model-host';
 
@@ -22,18 +23,20 @@ const LEVELS = 140;
 export class SessionStore {
   private readonly settings = inject(ModelSettings);
   private readonly host = inject(ModelHost);
+  private readonly archive = inject(Archive);
 
   private transcriber: StreamingTranscriber | null = null;
   private recorder = new Recorder();
   private levelHistory: number[] = [];
   private computeMs = 0;
   private startedAt = new Date();
+  private sessionId: string = crypto.randomUUID();
 
   readonly source = signal<SourceKind>('microphone');
   readonly phase = signal<SessionPhase>('idle');
   readonly error = signal<string | null>(null);
 
-  readonly words = signal<readonly Word[]>([]);
+  readonly segments = signal<readonly Segment[]>([]);
   readonly pending = signal('');
   readonly query = signal('');
 
@@ -50,8 +53,6 @@ export class SessionStore {
 
   /** Object URL of the recording, once there is one to play. */
   readonly recording = signal<string | null>(null);
-
-  readonly segments = computed(() => toSegments(this.words()));
 
   /** Seconds of compute per second of audio. Over 1 and it is losing ground. */
   readonly realTimeFactor = computed(() => {
@@ -71,7 +72,7 @@ export class SessionStore {
     if (this.listening()) return;
 
     this.error.set(null);
-    this.words.set([]);
+    this.segments.set([]);
     this.pending.set('');
     this.levelHistory = [];
     this.levels.set([]);
@@ -79,6 +80,7 @@ export class SessionStore {
     this.heard.set(0);
     this.computeMs = 0;
     this.startedAt = new Date();
+    this.sessionId = crypto.randomUUID();
     this.recorder = new Recorder();
     this.releaseRecording();
 
@@ -95,7 +97,7 @@ export class SessionStore {
           ...(language ? { language } : {}),
         },
         onUpdate: (update) => {
-          this.words.set(update.confirmed);
+          this.segments.set(toSegments(update.confirmed));
           this.pending.set(textOf(update.pending));
           this.passes.set(update.passes);
           this.lastPassMs.set(update.lastPassMs);
@@ -112,7 +114,7 @@ export class SessionStore {
       this.phase.set('listening');
 
       await transcriber.finished;
-      this.finish();
+      await this.finish();
     } catch (cause) {
       this.error.set(explain(cause));
       this.phase.set('error');
@@ -123,7 +125,25 @@ export class SessionStore {
     const transcriber = this.transcriber;
     this.transcriber = null;
     await transcriber?.stop();
-    this.finish();
+    await this.finish();
+  }
+
+  /** Bring a session back from storage, transcript and recording both. */
+  async reopen(id: string): Promise<void> {
+    const saved = await this.archive.load(id);
+    if (!saved) return;
+
+    this.releaseRecording();
+    this.segments.set(saved.segments);
+    this.pending.set('');
+    this.query.set('');
+    this.translate.set(saved.translated);
+    this.startedAt = new Date(saved.startedAt);
+    this.sessionId = saved.id;
+    this.passes.set(0);
+    if (saved.audio) {
+      this.recording.set(URL.createObjectURL(saved.audio));
+    }
   }
 
   markdown(): string {
@@ -139,13 +159,30 @@ export class SessionStore {
     return `aloud-${this.startedAt.toISOString().slice(0, 16).replace(/[:T]/g, '-')}.md`;
   }
 
-  private finish(): void {
+  private async finish(): Promise<void> {
     if (this.phase() === 'listening' || this.phase() === 'loading') {
       this.phase.set('idle');
     }
-    if (this.recorder.seconds > 0) {
-      this.recording.set(URL.createObjectURL(this.recorder.toWav()));
-    }
+    if (this.recorder.seconds === 0) return;
+
+    const audio = this.recorder.toWav();
+    this.recording.set(URL.createObjectURL(audio));
+
+    if (this.segments().length === 0) return;
+
+    await this.archive.save(
+      {
+        id: this.sessionId,
+        startedAt: this.startedAt.getTime(),
+        seconds: this.recorder.seconds,
+        bytes: audio.size,
+        translated: this.translate(),
+        language: this.settings.language().trim(),
+        model: this.settings.model(),
+        segments: [...this.segments()],
+      },
+      audio,
+    );
   }
 
   private releaseRecording(): void {

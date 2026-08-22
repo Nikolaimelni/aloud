@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { HistoryList } from './history/history-list';
 import { SessionPanel } from './session/session-panel';
 
 @Component({
   selector: 'aloud-root',
-  imports: [SessionPanel],
+  imports: [HistoryList, SessionPanel],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

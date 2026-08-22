@@ -17,8 +17,8 @@ function amplitudeAt(signal: Float32Array, frequency: number, rate: number): num
   for (let i = 0; i < signal.length; i++) {
     const w = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / signal.length);
     const phase = (2 * Math.PI * frequency * i) / rate;
-    re += signal[i] * w * Math.cos(phase);
-    im += signal[i] * w * Math.sin(phase);
+    re += signal[i]! * w * Math.cos(phase);
+    im += signal[i]! * w * Math.sin(phase);
     windowGain += w;
   }
   return (2 * Math.hypot(re, im)) / windowGain;
@@ -79,7 +79,7 @@ describe('Resampler', () => {
 
     expect(joined.length).toBe(whole.length);
     for (let i = 0; i < whole.length; i++) {
-      expect(joined[i]).toBeCloseTo(whole[i], 6);
+      expect(joined[i]).toBeCloseTo(whole[i]!, 6);
     }
   });
 

@@ -1,16 +1,16 @@
-export interface Word {
+export type Word = {
   readonly text: string;
   /** Seconds from the start of the session, not the window. */
   readonly start: number;
   readonly end: number;
-}
+};
 
-export interface StabilizerState {
+export type StabilizerState = {
   /** Two passes have agreed on these. They will not change again. */
   readonly confirmed: readonly Word[];
   /** The current guess for everything after that. Expect it to be rewritten. */
   readonly pending: readonly Word[];
-}
+};
 
 /** Three copies of the same phrase in a row is a decoder loop, not someone repeating themselves. */
 const LOOP_REPEATS = 3;
@@ -97,7 +97,7 @@ export function textOf(words: readonly Word[]): string {
 function agreementLength(before: readonly Word[], after: readonly Word[]): number {
   const limit = Math.min(before.length, after.length);
   let length = 0;
-  while (length < limit && same(before[length], after[length])) {
+  while (length < limit && same(before[length]!, after[length]!)) {
     length++;
   }
   return length;
@@ -133,7 +133,7 @@ function tailCopies(words: readonly Word[], size: number): number {
   while (words.length >= size * (copies + 1)) {
     const start = words.length - size * (copies + 1);
     const block = words.slice(start, start + size);
-    if (!block.every((word, index) => same(word, tail[index]))) break;
+    if (!block.every((word, index) => same(word, tail[index]!))) break;
     copies++;
   }
 

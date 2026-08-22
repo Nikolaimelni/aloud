@@ -7,7 +7,7 @@ import { Stabilizer, type StabilizerState } from './stabilize';
 
 const DEFAULT_BACKPRESSURE = 5;
 
-export interface StreamUpdate extends StabilizerState {
+export type StreamUpdate = StabilizerState & {
   /** Seconds of audio that have not been through the model yet. */
   readonly backlogSeconds: number;
   /** How far behind the confirmed text is running, in seconds of speech. */
@@ -16,9 +16,9 @@ export interface StreamUpdate extends StabilizerState {
   readonly heardSeconds: number;
   readonly lastPassMs: number;
   readonly passes: number;
-}
+};
 
-export interface StreamingOptions {
+export type StreamingOptions = {
   readonly chunker?: ChunkerOptions;
   readonly transcribe?: TranscribeOptions;
   /**
@@ -28,7 +28,7 @@ export interface StreamingOptions {
   readonly backpressureSeconds?: number;
   readonly onUpdate: (update: StreamUpdate) => void;
   readonly onError?: (error: unknown) => void;
-}
+};
 
 /**
  * Joins the four parts up: frames from a source, a speech flag from the detector, windows
@@ -51,12 +51,16 @@ export class StreamingTranscriber {
     this.done = resolve;
   });
 
-  constructor(
-    private readonly source: AudioSource,
-    private readonly vad: VadClient,
-    private readonly asr: AsrClient,
-    private readonly options: StreamingOptions,
-  ) {
+  private readonly source: AudioSource;
+  private readonly vad: VadClient;
+  private readonly asr: AsrClient;
+  private readonly options: StreamingOptions;
+
+  constructor(source: AudioSource, vad: VadClient, asr: AsrClient, options: StreamingOptions) {
+    this.source = source;
+    this.vad = vad;
+    this.asr = asr;
+    this.options = options;
     this.chunker = new Chunker(options.chunker);
   }
 

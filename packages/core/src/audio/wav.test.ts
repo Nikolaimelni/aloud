@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AloudError } from '../errors';
 import { decodeWav } from './wav';
 
-interface WavSpec {
+type WavSpec = {
   sampleRate: number;
   bits: number;
   code?: number;
@@ -11,12 +11,12 @@ interface WavSpec {
   extraChunk?: boolean;
   /** Lie about how many bytes of audio follow. */
   declaredDataBytes?: number;
-}
+};
 
 function buildWav(spec: WavSpec): ArrayBuffer {
   const { sampleRate, bits, code = 1, channels, extraChunk = false } = spec;
   const stride = bits / 8;
-  const frames = channels[0].length;
+  const frames = channels[0]!.length;
   const dataBytes = frames * channels.length * stride;
   const listBytes = extraChunk ? 18 : 0;
 
@@ -59,7 +59,7 @@ function buildWav(spec: WavSpec): ArrayBuffer {
   u32(spec.declaredDataBytes ?? dataBytes);
   for (let frame = 0; frame < frames; frame++) {
     for (const channel of channels) {
-      writeSample(view, at, channel[frame], bits, code);
+      writeSample(view, at, channel[frame]!, bits, code);
       at += stride;
     }
   }
@@ -106,7 +106,7 @@ describe('decodeWav', () => {
     expect(decoded.channels).toBe(1);
     expect(decoded.samples.length).toBe(64);
     for (let i = 0; i < source.length; i++) {
-      expect(decoded.samples[i]).toBeCloseTo(source[i], 4);
+      expect(decoded.samples[i]).toBeCloseTo(source[i]!, 4);
     }
   });
 
@@ -129,7 +129,7 @@ describe('decodeWav', () => {
 
     expect(decoded.sampleRate).toBe(44_100);
     expect(decoded.samples.length).toBe(16);
-    expect(decoded.samples[5]).toBeCloseTo(source[5], 4);
+    expect(decoded.samples[5]).toBeCloseTo(source[5]!, 4);
   });
 
   it('reads 32-bit float', () => {
@@ -139,7 +139,7 @@ describe('decodeWav', () => {
     );
 
     for (let i = 0; i < source.length; i++) {
-      expect(decoded.samples[i]).toBeCloseTo(source[i], 6);
+      expect(decoded.samples[i]).toBeCloseTo(source[i]!, 6);
     }
   });
 
@@ -148,7 +148,7 @@ describe('decodeWav', () => {
     const decoded = decodeWav(buildWav({ sampleRate: 16_000, bits: 24, channels: [source] }));
 
     for (let i = 0; i < source.length; i++) {
-      expect(decoded.samples[i]).toBeCloseTo(source[i], 5);
+      expect(decoded.samples[i]).toBeCloseTo(source[i]!, 5);
     }
   });
 

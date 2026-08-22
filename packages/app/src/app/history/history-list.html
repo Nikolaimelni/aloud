@@ -1,0 +1,32 @@
+@if (archive.sessions().length > 0) {
+  <div class="head">
+    <h2>Earlier sessions</h2>
+    <span class="size">{{ stored() }} in this browser</span>
+    <button type="button" class="plain" (click)="archive.clear()">Delete all</button>
+  </div>
+
+  <ul class="list">
+    @for (item of archive.sessions(); track item.id) {
+      <li>
+        <button type="button" class="row" (click)="open(item.id)">
+          <span class="when">{{ when(item.startedAt) }}</span>
+          <span class="length">{{ length(item.seconds) }}</span>
+          <span class="preview">{{ preview(item.segments[0]?.text ?? '') }}</span>
+        </button>
+        <button
+          type="button"
+          class="plain"
+          [attr.aria-label]="'Delete session from ' + when(item.startedAt)"
+          (click)="remove(item.id, $event)"
+        >
+          Delete
+        </button>
+      </li>
+    }
+  </ul>
+
+  <p class="note">
+    The last ten sessions are kept, audio and all. Nothing has been uploaded; clearing the site data
+    removes them for good.
+  </p>
+}

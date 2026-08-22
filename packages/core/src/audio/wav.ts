@@ -1,23 +1,23 @@
 import { AloudError } from '../errors';
 
-export interface DecodedWav {
+export type DecodedWav = {
   readonly sampleRate: number;
   /** How many channels the file had before we mixed them down. */
   readonly channels: number;
   /** Mono, in [-1, 1]. */
   readonly samples: Float32Array;
-}
+};
 
 const PCM = 0x0001;
 const IEEE_FLOAT = 0x0003;
 const EXTENSIBLE = 0xfffe;
 
-interface WavFormat {
+type WavFormat = {
   code: number;
   channels: number;
   sampleRate: number;
   bits: number;
-}
+};
 
 /**
  * Enough of RIFF to read the fixtures the benchmark runs on. Deliberately not a general

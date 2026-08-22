@@ -2,11 +2,11 @@ import { AloudError } from '../errors';
 import { Resampler } from './resample';
 import { TARGET_SAMPLE_RATE, type AudioSource, type FrameHandler } from './source';
 
-export interface CaptureOptions {
+export type CaptureOptions = {
   /** Where the capture worklet lives. The app owns the asset, core only loads it. */
   readonly workletUrl: string;
   readonly open: () => Promise<MediaStream>;
-}
+};
 
 /**
  * Anything the browser will hand over as a `MediaStream`: a microphone, a shared tab, later
@@ -23,7 +23,11 @@ export class MediaCapture implements AudioSource {
     this.done = resolve;
   });
 
-  constructor(private readonly options: CaptureOptions) {}
+  private readonly options: CaptureOptions;
+
+  constructor(options: CaptureOptions) {
+    this.options = options;
+  }
 
   /** What the device actually gave us, once running. Rarely 16 kHz, hence the resampler. */
   get deviceSampleRate(): number | null {

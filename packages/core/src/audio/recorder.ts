@@ -6,7 +6,10 @@ export class Recorder {
   private data: Int16Array;
   private length = 0;
 
-  constructor(private readonly sampleRate: number = TARGET_SAMPLE_RATE) {
+  private readonly sampleRate: number;
+
+  constructor(sampleRate: number = TARGET_SAMPLE_RATE) {
+    this.sampleRate = sampleRate;
     this.data = new Int16Array(sampleRate * 30);
   }
 
@@ -21,8 +24,9 @@ export class Recorder {
       this.data = grown;
     }
 
+    // Indices are bounded by the length above, so the reads cannot miss.
     for (let i = 0; i < samples.length; i++) {
-      const clamped = Math.max(-1, Math.min(1, samples[i]));
+      const clamped = Math.max(-1, Math.min(1, samples[i]!));
       this.data[this.length + i] = Math.round(clamped * 32767);
     }
     this.length += samples.length;

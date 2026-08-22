@@ -13,11 +13,11 @@ import { ModelHost } from '../model/model-host';
 import { SessionStore, type SourceKind } from './session-store';
 import { TranscriptView } from './transcript-view';
 
-interface SourceOption {
+type SourceOption = {
   readonly kind: SourceKind;
   readonly label: string;
   readonly about: string;
-}
+};
 
 const SOURCES: readonly SourceOption[] = [
   {

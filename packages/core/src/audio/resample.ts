@@ -89,9 +89,10 @@ export class Resampler {
       const newest = (position - phase) / up - offset;
       const start = phase * tapsPerPhase;
 
+      // Both indices are inside their arrays by construction: see the invariant above.
       let sum = 0;
       for (let i = 0; i < tapsPerPhase; i++) {
-        sum += taps[start + i] * buffer[newest - i];
+        sum += taps[start + i]! * buffer[newest - i]!;
       }
       out[k] = sum;
     }
@@ -135,14 +136,14 @@ function buildPolyphase(up: number, down: number): { taps: Float32Array; tapsPer
     let sum = 0;
     for (let i = 0; i < tapsPerPhase; i++) {
       const j = phase + i * up;
-      if (j < length) sum += prototype[j];
+      if (j < length) sum += prototype[j]!;
     }
     // Each phase is normalised on its own, otherwise DC gain wobbles with the phase
     // and a steady tone comes out amplitude-modulated at the resampling period.
     const scale = sum === 0 ? 0 : 1 / sum;
     for (let i = 0; i < tapsPerPhase; i++) {
       const j = phase + i * up;
-      taps[phase * tapsPerPhase + i] = j < length ? prototype[j] * scale : 0;
+      taps[phase * tapsPerPhase + i] = j < length ? prototype[j]! * scale : 0;
     }
   }
 

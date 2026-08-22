@@ -21,7 +21,7 @@ describe('Recorder', () => {
     expect(decoded.channels).toBe(1);
     expect(decoded.samples.length).toBe(4000);
     for (let i = 0; i < source.length; i++) {
-      expect(decoded.samples[i]).toBeCloseTo(source[i], 3);
+      expect(decoded.samples[i]).toBeCloseTo(source[i]!, 3);
     }
   });
 

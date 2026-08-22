@@ -15,8 +15,10 @@
     "@angular/core": "^22.1.0",
     "@angular/forms": "^22.1.0",
     "@angular/platform-browser": "^22.1.0",
+    "idb": "^8.0.3",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@angular/build": "^22.1.8",

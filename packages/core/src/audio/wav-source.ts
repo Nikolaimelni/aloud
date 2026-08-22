@@ -6,13 +6,13 @@ import { decodeWav } from './wav';
 /** At full speed the loop never awaits, so it hands the thread back every so often. */
 const YIELD_EVERY = 128;
 
-export interface WavSourceOptions {
+export type WavSourceOptions = {
   readonly data: ArrayBuffer;
   /** Input samples per frame, before resampling. 1024 is what the capture worklet posts. */
   readonly frameSize?: number;
   /** 1 is real time. Infinity is as fast as the machine manages, which is what CI wants. */
   readonly speed?: number;
-}
+};
 
 /**
  * The same pipeline the microphone feeds, fed from a file instead. This is the adapter that
@@ -27,7 +27,11 @@ export class WavSource implements AudioSource {
     this.done = resolve;
   });
 
-  constructor(private readonly options: WavSourceOptions) {}
+  private readonly options: WavSourceOptions;
+
+  constructor(options: WavSourceOptions) {
+    this.options = options;
+  }
 
   async start(onFrame: FrameHandler): Promise<void> {
     if (this.running) {
