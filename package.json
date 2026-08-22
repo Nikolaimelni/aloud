@@ -14,7 +14,8 @@
     "test": "pnpm -r run test",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . && prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "bench": "pnpm --filter @aloud/bench run bench"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

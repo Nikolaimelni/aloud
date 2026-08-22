@@ -1,0 +1,45 @@
+{
+  "note": "Audio is fetched at run time from stable Hugging Face repo files, so nothing large lives in this repository. A fixture without a reference is measured for speed only; adding one is an edit to this file.",
+  "fixtures": [
+    {
+      "id": "librispeech-clean",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/librispeech_asr_demo_validation_0.wav",
+      "language": "english",
+      "note": "read speech, clean",
+      "source": "LibriSpeech test-clean, row 0 of hf-internal-testing/librispeech_asr_dummy. CC BY 4.0.",
+      "reference": "MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE ARE GLAD TO WELCOME HIS GOSPEL"
+    },
+    {
+      "id": "jfk",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav",
+      "language": "english",
+      "note": "speech to a crowd, some room",
+      "source": "Public domain recording of the 1961 inaugural address; the reference is the documented sentence.",
+      "reference": "And so my fellow Americans ask not what your country can do for you ask what you can do for your country"
+    },
+    {
+      "id": "ted-60s",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/ted_60_16k.wav",
+      "language": "english",
+      "note": "a minute of continuous talk, used for the latency percentiles",
+      "source": "Xenova/transformers.js-docs",
+      "reference": null
+    },
+    {
+      "id": "dialogue",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/dialogue.wav",
+      "language": "english",
+      "note": "two people, overlapping turns",
+      "source": "Xenova/transformers.js-docs",
+      "reference": null
+    },
+    {
+      "id": "russian",
+      "url": "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/russian-audio.wav",
+      "language": "russian",
+      "note": "no reference transcript yet, so this one only reports speed",
+      "source": "Xenova/transformers.js-docs",
+      "reference": null
+    }
+  ]
+}

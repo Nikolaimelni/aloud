@@ -13,110 +13,76 @@ reasonable trade for accuracy, and a bad one for a standup where somebody mentio
 customer by name. WebGPU and quantised Whisper have made the other trade viable: slower and
 a few points worse, but nothing to upload and nothing to delete afterwards.
 
-## Latency, honestly
+## Numbers
 
-Real-time here does not mean instant. Capture is cheap and the model is not.
+There is a benchmark harness now, so these are produced by `pnpm bench` rather than by me
+driving a browser and writing down what I saw. It plays fixtures through the real pipeline in
+a real Chromium, scores the transcript against a reference where there is one, and writes a
+JSON and a Markdown report.
 
-| Stage                       | Cost                          |
-| --------------------------- | ----------------------------- |
-| Capture, resample to 16 kHz | ~60 ms                        |
-| Voice activity              | ~100 ms                       |
-| One pass over the window    | 1.3-2.1 s, mostly fixed       |
-| Confirmation                | that pass has to happen twice |
+Latest run, whisper at q4 on WASM with twelve threads, window step 1.5 s:
 
-A word is printed as final only when two consecutive passes agree on it, so in the worst
-case it waits out a window step, then a pass, then another step, then another pass.
+| Fixture           | Model | Mode      | Audio  | RTF  | WER  | Lag p50 | Lag p90 |
+| ----------------- | ----- | --------- | ------ | ---- | ---- | ------- | ------- |
+| librispeech-clean | tiny  | one pass  | 5.9 s  | 0.23 | 0.0% |         |         |
+| librispeech-clean | base  | one pass  | 5.9 s  | 0.58 | 0.0% |         |         |
+| jfk               | tiny  | one pass  | 11 s   | 0.15 | 4.5% |         |         |
+| jfk               | base  | one pass  | 11 s   | 0.32 | 0.0% |         |         |
+| dialogue          | tiny  | one pass  | 8 s    | 0.21 |      |         |         |
+| dialogue          | base  | one pass  | 8 s    | 0.46 |      |         |         |
+| russian           | tiny  | one pass  | 10.1 s | 0.21 |      |         |         |
+| russian           | base  | one pass  | 10.1 s | 0.45 |      |         |         |
+| ted-60s           | tiny  | streaming | 60 s   | 1.00 |      | 3.4 s   | 8.6 s   |
+| ted-60s           | base  | streaming | 60 s   | 1.50 |      | 6.4 s   | 9.6 s   |
 
-Played at real speed, whisper-base on WASM with a 1.5 second step, the confirmed text ran
-**3.9 to 4.7 seconds** behind the speaker with one and a half to three seconds of audio
-queued behind it. That is three or four times the budget I wrote down before measuring
-anything, and I have left the original numbers below so the difference is visible.
+What to read out of that.
 
-The cause is the fixed cost of a pass. Whisper's encoder pads every window to thirty seconds,
-so halving the window does not halve the work. Raising the step to 2.2 seconds made the lag
-worse rather than better, because the lag is two steps plus two passes and the step is the
-part you pay for twice.
+Streaming costs four to five times a single pass over the same audio, because every second
+goes through the model several times before two passes agree on it. In this Chromium,
+whisper-base streaming runs at 1.5 times real time, which means it does not keep up;
+whisper-tiny sits at exactly 1.00, which means it only just does. The confirmed text runs
+three to six seconds behind at the median and around nine at the ninetieth percentile.
 
-Where that leaves it: on this laptop the loop sits at break-even, a real-time factor of 0.95
-to 1.07 depending on the model. It keeps up, but only just, and a slower machine will not.
-whisper-tiny buys about ten percent and costs noticeably more errors: it heard "my fellow
-America" and "as not what your country can do". Getting this to a second of lag needs either
-a real GPU or a model built for streaming, and that is a version 2 question rather than
-something the window step can fix.
+The word error rates are on two short English clips, which is not a benchmark, it is a smoke
+test with arithmetic. The Russian fixture has no reference transcript yet so it is only
+timed. Growing that set is an edit to `packages/bench/fixtures.json` and the most useful
+single thing left to do.
 
-Note also that streaming costs several times what one pass costs. Transcribing the same clip
-in one go is 0.28 real time; streaming it is 0.57 to 1.07, because every second of audio goes
-through the model two or three times before it settles.
+One normalisation detail worth the warning: before the normaliser spelled out "Mr." as
+"mister", LibriSpeech scored 5.9% and it was entirely that one word. Whisper evaluations live
+or die on text normalisation, and a WER quoted without saying which normaliser produced it is
+not a number.
 
-## First numbers
+The harness cannot get a GPU adapter here, headless or headed, so the table is WASM only, and
+CI is WASM only as well because the runners have no graphics card. Measured by hand in a
+desktop browser on the same machine, whisper-base at q4 sat around 0.62 on WebGPU against
+0.28 on WASM: twelve CPU cores beat this laptop's GPU, which is not what I expected and is
+exactly why the backend is a setting rather than a decision.
 
-One laptop, AMD GCN5 GPU, 12 CPU threads, Chromium 152, one 11-second English clip,
-whisper-base at q4. Median of four warm runs; the spread across runs is about 10%, and the
-first run after loading a model is roughly 40% slower while shaders compile.
+### Running it
 
-| Backend | Cross-origin isolated | Real-time factor |
-| ------- | --------------------- | ---------------- |
-| WASM    | yes                   | 0.28             |
-| WASM    | no                    | 0.49             |
-| WebGPU  | yes                   | 0.63             |
-| WebGPU  | no                    | 0.62             |
+```
+pnpm bench
+```
 
-Three things came out of this, and two of them were not what I expected.
+Fixtures are fetched at run time from Hugging Face, so the repository stays small. The report
+lands in `packages/bench/report/`, and CI uploads it as an artifact.
 
-Quantising the encoder to q4 is nearly three times faster than the fp32 encoder the
-transformers.js examples use, and cuts the download from 206 MB to 142 MB. That is now the
-default. The q8 decoder, which is the usual choice on WASM, does not load at all on this
-onnxruntime version.
+## Latency, in structure
 
-Cross-origin isolation is worth having. It lets onnxruntime start its WASM thread pool,
-which nearly halves WASM inference. It costs nothing on WebGPU. The headers are
-`COOP: same-origin` and `COEP: credentialless`; the credentialless variant is what lets the
-model weights still come from a CDN, and Safari does not support it, so Safari runs
-single-threaded.
+A word is printed as final only when two consecutive passes agree on it, so in the worst case
+it waits out a window step, then a pass, then another step, then another pass. The step is the
+part you pay for twice, which is why raising it does not help: at 2.2 seconds the lag got
+worse, not better.
 
-And WASM on twelve cores beats this laptop's GPU by two to one. I would not have guessed
-that, and I would have shipped `auto` picking WebGPU without checking. It still does, because
-on a machine with a real GPU that is the right guess, but the backend is a visible setting
-and the week 5 benchmark is what will settle it.
-
-An earlier single run showed 0.23 on WebGPU and I nearly wrote it down. Repeated runs put it
-at 0.62. One sample is not a measurement.
-
-The number that actually matters for streaming is not the ratio, though. It is what a single
-pass costs:
-
-| Audio in the window | Inference |
-| ------------------- | --------- |
-| 2 s                 | 1.3 s     |
-| 5 s                 | 1.4 s     |
-| 11 s                | 2.1 s     |
-
-Whisper's encoder always runs over a padded 30-second window, so a pass costs about 1.2
-seconds whatever you feed it. That puts a floor under the window step: whisper-base cannot be
-re-run more often than roughly every 1.3 seconds here, and the 600 ms end of the budget table
-needs a smaller model.
-
-## How the streaming part works
-
-Whisper is not a streaming model. It reads a window of audio and writes the whole window out,
-so the only way to get text while someone is still talking is to run it again and again over
-a window that keeps moving, and then decide which part of each answer to believe.
-
-The rule is local agreement: a word is printed as final once two consecutive passes put it in
-the same place. Everything after that is shown as a guess, in amber, because it will change.
-Silero voice activity detection sits in front, and its job is not to find word boundaries but
-to stop the model running at all when nobody is talking, which is when Whisper starts
-inventing "thank you for watching" out of room tone.
-
-Two things that only turned up once it ran. The window has to keep a little audio behind the
-first unconfirmed word, not cut flush against it: with a flush cut the model lost "Americans"
-out of "my fellow Americans" every time, because the word arrived with no run-up. And word
-level timestamps need the `_timestamped` model exports, which carry the cross-attentions that
-the alignment is computed from; the ordinary exports throw.
+A pass costs about a second whatever the window contains, because Whisper's encoder pads
+every window to thirty seconds. That is the floor under the step, and it is why getting this
+down to a second of lag needs a smaller model or a faster machine rather than a better
+setting.
 
 ## Status
 
-Week 4 of six. What exists:
+Week 5 of six. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
@@ -134,11 +100,14 @@ Week 4 of six. What exists:
 - a translate switch, which is the same model and the same pass: speak Russian, read English
 - the last ten sessions kept in IndexedDB, transcript and audio, reopenable
 
+- a benchmark harness: fixtures, word error rate, real-time factor, confirmation lag
+  percentiles, a report in CI artifacts
+
 What does not exist yet. There is no summary; the plan calls for an extractive one picked by
-sentence embeddings, which means another model to download and has not been built. There is
-no service worker either, so the model weights survive a reload but the app shell does not:
-offline is half done. And there is no benchmark harness, which is week 5 and the point of the
-whole exercise.
+sentence embeddings, which means another model to download and has not been built. There is no
+service worker either, so the model weights survive a reload but the app shell does not, and
+offline is half done. The fixture set is five clips with two references, which is enough to
+prove the harness and not enough to characterise the model.
 
 ## Running it
 
@@ -159,6 +128,7 @@ packages/core   audio sources, resampling, WAV in and out, voice activity, windo
                 stabiliser, the inference engine and both worker protocols
 packages/app    Angular 22, zoneless, signals; owns the worklet asset, the two Workers and
                 the IndexedDB archive
+packages/bench  a page with no interface, driven by Playwright, that measures the same core
 ```
 
 Audio sits behind an `AudioSource` adapter and the model behind a worker protocol. Neither
