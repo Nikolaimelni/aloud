@@ -22,11 +22,7 @@ export class SileroVad {
     ort.env.wasm.numThreads = 1;
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`the weights came back ${response.status}`);
-      }
-      const weights = new Uint8Array(await response.arrayBuffer());
+      const weights = await download(url);
       this.session = await ort.InferenceSession.create(weights, { executionProviders: ['wasm'] });
     } catch (cause) {
       throw new AloudError('vad-load-failed', 'the voice activity model would not load', {
@@ -56,4 +52,24 @@ export class SileroVad {
   reset(): void {
     this.state = new Float32Array(STATE_SIZE);
   }
+}
+
+/** A dropped connection on the way to the CDN should cost a second, not the whole session. */
+async function download(url: string, attempts = 3): Promise<Uint8Array> {
+  let last: unknown = null;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`the weights came back ${response.status}`);
+      }
+      return new Uint8Array(await response.arrayBuffer());
+    } catch (cause) {
+      last = cause;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+
+  throw last instanceof Error ? last : new Error(String(last));
 }

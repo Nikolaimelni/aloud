@@ -6,6 +6,12 @@ export type CaptureOptions = {
   /** Where the capture worklet lives. The app owns the asset, core only loads it. */
   readonly workletUrl: string;
   readonly open: () => Promise<MediaStream>;
+  /**
+   * The browser suspends the audio graph when a tab goes to the background, and on a phone
+   * that happens the moment someone answers a message. Frames simply stop; without this the
+   * interface would sit there looking like it was still listening.
+   */
+  readonly onRunningChange?: (running: boolean) => void;
 };
 
 /**
@@ -32,6 +38,11 @@ export class MediaCapture implements AudioSource {
   /** What the device actually gave us, once running. Rarely 16 kHz, hence the resampler. */
   get deviceSampleRate(): number | null {
     return this.context?.sampleRate ?? null;
+  }
+
+  /** Ask the browser to pick the graph back up, for when a tab comes to the foreground. */
+  async resume(): Promise<void> {
+    await this.context?.resume();
   }
 
   async start(onFrame: FrameHandler): Promise<void> {
@@ -72,6 +83,10 @@ export class MediaCapture implements AudioSource {
     context.createMediaStreamSource(this.stream).connect(node).connect(sink);
     sink.connect(context.destination);
 
+    context.onstatechange = () => {
+      this.options.onRunningChange?.(context.state === 'running');
+    };
+
     await context.resume();
   }
 
@@ -91,9 +106,14 @@ export class MediaCapture implements AudioSource {
   }
 }
 
-export function microphone(workletUrl: string, deviceId?: string): MediaCapture {
+export function microphone(
+  workletUrl: string,
+  options: { deviceId?: string; onRunningChange?: (running: boolean) => void } = {},
+): MediaCapture {
+  const { deviceId } = options;
   return new MediaCapture({
     workletUrl,
+    ...(options.onRunningChange ? { onRunningChange: options.onRunningChange } : {}),
     open: async () => {
       const audio: MediaTrackConstraints = { channelCount: 1 };
       if (deviceId) {
@@ -118,9 +138,13 @@ export function microphone(workletUrl: string, deviceId?: string): MediaCapture 
  * Chrome will not offer the audio checkbox unless video is asked for too, so it is requested
  * and then thrown away.
  */
-export function tabAudio(workletUrl: string): MediaCapture {
+export function tabAudio(
+  workletUrl: string,
+  options: { onRunningChange?: (running: boolean) => void } = {},
+): MediaCapture {
   return new MediaCapture({
     workletUrl,
+    ...(options.onRunningChange ? { onRunningChange: options.onRunningChange } : {}),
     open: async () => {
       let stream: MediaStream;
       try {

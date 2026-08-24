@@ -1,4 +1,4 @@
-import { inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { AsrClient } from '@aloud/core/asr/worker-client';
 import { VadClient } from '@aloud/core/vad/worker-client';
 import type { AsrDevice, ModelProgress } from '@aloud/core/asr/protocol';
@@ -17,20 +17,19 @@ export class ModelHost {
 
   private asr: AsrClient | null = null;
   private vad: VadClient | null = null;
-  private loadedKey: string | null = null;
+  private readonly loadedKey = signal<string | null>(null);
 
   readonly loading = signal(false);
   readonly download = signal<{ loaded: number; total: number } | null>(null);
   readonly device = signal<AsrDevice | null>(null);
   readonly loadMs = signal(0);
 
-  get isLoaded(): boolean {
-    return this.loadedKey === this.settings.key();
-  }
+  /** False until the weights for the current settings are in the browser. */
+  readonly hasWeights = computed(() => this.loadedKey() === this.settings.key());
 
   async ready(): Promise<Loaded> {
     const key = this.settings.key();
-    if (this.asr && this.vad && this.loadedKey === key) {
+    if (this.asr && this.vad && this.loadedKey() === key) {
       return { asr: this.asr, vad: this.vad };
     }
 
@@ -38,7 +37,7 @@ export class ModelHost {
     this.vad?.dispose();
     this.asr = null;
     this.vad = null;
-    this.loadedKey = null;
+    this.loadedKey.set(null);
     this.downloads.clear();
     this.download.set(null);
     this.loading.set(true);
@@ -56,7 +55,7 @@ export class ModelHost {
 
       this.asr = asr;
       this.vad = vad;
-      this.loadedKey = key;
+      this.loadedKey.set(key);
       this.device.set(model.device);
       this.loadMs.set(model.elapsedMs);
       return { asr, vad };

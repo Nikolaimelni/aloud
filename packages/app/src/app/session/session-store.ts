@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { microphone, tabAudio } from '@aloud/core/audio/capture';
+import { microphone, tabAudio, type MediaCapture } from '@aloud/core/audio/capture';
 import { Recorder } from '@aloud/core/audio/recorder';
 import { tapFrames } from '@aloud/core/audio/tap';
 import { WavSource } from '@aloud/core/audio/wav-source';
@@ -26,6 +26,7 @@ export class SessionStore {
   private readonly archive = inject(Archive);
 
   private transcriber: StreamingTranscriber | null = null;
+  private capture: MediaCapture | null = null;
   private recorder = new Recorder();
   private levelHistory: number[] = [];
   private computeMs = 0;
@@ -46,6 +47,9 @@ export class SessionStore {
   readonly backlog = signal(0);
   readonly lag = signal(0);
   readonly heard = signal(0);
+
+  /** The browser suspended the audio graph, which on a phone means the tab went away. */
+  readonly paused = signal(false);
 
   readonly translate = signal(false);
   readonly windowStep = signal(1.5);
@@ -68,6 +72,13 @@ export class SessionStore {
     return this.segments().filter((segment) => segment.text.toLowerCase().includes(needle));
   });
 
+  constructor() {
+    // Coming back to the tab should pick the graph up again rather than need a second tap.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) void this.capture?.resume();
+    });
+  }
+
   async start(file?: File): Promise<void> {
     if (this.listening()) return;
 
@@ -82,6 +93,7 @@ export class SessionStore {
     this.startedAt = new Date();
     this.sessionId = crypto.randomUUID();
     this.recorder = new Recorder();
+    this.paused.set(false);
     this.releaseRecording();
 
     try {
@@ -192,12 +204,17 @@ export class SessionStore {
   }
 
   private async open(file?: File): Promise<AudioSource> {
+    const onRunningChange = (running: boolean) => this.paused.set(!running);
+
     switch (this.source()) {
       case 'microphone':
-        return microphone(WORKLET_URL);
+        this.capture = microphone(WORKLET_URL, { onRunningChange });
+        return this.capture;
       case 'tab':
-        return tabAudio(WORKLET_URL);
+        this.capture = tabAudio(WORKLET_URL, { onRunningChange });
+        return this.capture;
       case 'file': {
+        this.capture = null;
         if (!file) {
           throw new AloudError('capture-failed', 'pick a file first');
         }

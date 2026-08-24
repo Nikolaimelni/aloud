@@ -2,6 +2,14 @@
   display: block;
 }
 
+.panel {
+  display: block;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+}
+
 .head {
   display: flex;
   align-items: baseline;

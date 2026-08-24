@@ -2,8 +2,15 @@
   @if (rows().length > 0 || pending()) {
     @for (row of rows(); track row.start) {
       <p class="line" [class.active]="row.active">
-        <button type="button" class="stamp" (click)="seek.emit(row.start)">{{ row.stamp }}</button>
-        <span class="text" aria-live="polite">
+        <button
+          type="button"
+          class="stamp"
+          [attr.aria-label]="row.label"
+          (click)="seek.emit(row.start)"
+        >
+          {{ row.stamp }}
+        </button>
+        <span class="text">
           @for (part of row.parts; track $index) {
             @if (part.hit) {
               <mark>{{ part.text }}</mark>
@@ -26,3 +33,5 @@
     <p class="empty">{{ placeholder() }}</p>
   }
 </div>
+
+<p class="offscreen" aria-live="polite" aria-atomic="true">{{ announcement() }}</p>

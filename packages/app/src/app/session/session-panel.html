@@ -34,8 +34,12 @@
     </label>
   } @else if (store.listening()) {
     <button type="button" class="primary" (click)="store.stop()">Stop</button>
-  } @else {
+  } @else if (host.hasWeights()) {
     <button type="button" class="primary" (click)="store.start()">Start listening</button>
+  } @else {
+    <button type="button" class="primary" (click)="store.start()">
+      Download {{ sizeMb() }} MB and start
+    </button>
   }
 
   <label class="check">
@@ -65,6 +69,13 @@
     }
     <p class="warn">On a phone plan, wait for wi-fi.</p>
   </div>
+}
+
+@if (store.paused()) {
+  <p class="paused" role="status">
+    The browser suspended the audio while this tab was in the background. Nothing was recorded in
+    the meantime; come back to the tab and it picks up again.
+  </p>
 }
 
 @if (store.error(); as text) {

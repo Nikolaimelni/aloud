@@ -6,6 +6,7 @@ import {
   type ElementRef,
   input,
   output,
+  signal,
   viewChild,
 } from '@angular/core';
 import { clock, type Segment } from '@aloud/core/stream/transcript';
@@ -16,6 +17,7 @@ const STICKY_PX = 24;
 type Row = {
   readonly start: number;
   readonly stamp: string;
+  readonly label: string;
   readonly parts: readonly { text: string; hit: boolean }[];
   readonly active: boolean;
 };
@@ -37,6 +39,14 @@ export class TranscriptView {
 
   private readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
   private sticky = true;
+  private announced = '';
+
+  /**
+   * Screen readers get the words that have just been confirmed and nothing else. Putting the
+   * live region on the transcript itself would read the whole thing back on every pass, and
+   * the guess would be read over and over as it gets rewritten.
+   */
+  protected readonly announcement = signal('');
 
   protected readonly rows = computed<Row[]>(() => {
     const needle = this.query().trim().toLowerCase();
@@ -47,6 +57,7 @@ export class TranscriptView {
       .map((segment) => ({
         start: segment.start,
         stamp: clock(segment.start),
+        label: `Play from ${clock(segment.start)}`,
         parts: split(segment.text, needle),
         active: at >= segment.start && at < segment.end,
       }));
@@ -62,6 +73,20 @@ export class TranscriptView {
       this.pending();
       if (this.sticky) {
         queueMicrotask(() => this.toBottom());
+      }
+    });
+
+    effect(() => {
+      const settled = this.segments()
+        .map((segment) => segment.text)
+        .join(' ');
+      const fresh = settled.startsWith(this.announced)
+        ? settled.slice(this.announced.length).trim()
+        : settled;
+
+      this.announced = settled;
+      if (fresh) {
+        this.announcement.set(fresh);
       }
     });
   }

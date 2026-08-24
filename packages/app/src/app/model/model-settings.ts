@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import type { AsrDevice, AsrModelSpec, AsrPrecision } from '@aloud/core/asr/protocol';
+import { looksLikeAPhone } from './device-class';
 
 /**
  * The `_timestamped` exports carry cross-attentions, which is the only way to get a time per
@@ -25,7 +26,15 @@ export const MODEL_SIZE_MB: Record<string, number> = {
 /** Shared by both panels, so the controls sit in one place and mean one thing. */
 @Injectable({ providedIn: 'root' })
 export class ModelSettings {
-  readonly model = signal<string>('onnx-community/whisper-base_timestamped');
+  /**
+   * A phone gets the small model by default. iOS kills a tab that asks for too much memory
+   * without saying why, and three hundred megabytes over a mobile connection is rude besides.
+   */
+  readonly model = signal<string>(
+    looksLikeAPhone()
+      ? 'onnx-community/whisper-tiny_timestamped'
+      : 'onnx-community/whisper-base_timestamped',
+  );
   readonly device = signal<AsrDevice | 'auto'>('auto');
   readonly precision = signal<AsrPrecision | 'auto'>('auto');
   readonly language = signal('');

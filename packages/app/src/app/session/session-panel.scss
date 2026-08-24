@@ -86,6 +86,16 @@
   color: var(--alarm);
 }
 
+.paused {
+  margin: 0 0 16px;
+  padding: 10px 13px;
+  max-width: 60ch;
+  border-left: 2px solid var(--partial);
+  background: var(--partial-soft);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
 aloud-level-meter {
   display: block;
   margin-bottom: 10px;
