@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: 'bench.spec.ts',
+  testMatch: '*.spec.ts',
   timeout: 30 * 60 * 1000,
   workers: 1,
   reporter: [['list']],
@@ -21,6 +21,8 @@ export default defineConfig({
       ],
     },
   },
+  // Only the measurement spec needs the Vite page; the offline check serves the built app
+  // itself, because that is the artefact whose offline behaviour is in question.
   webServer: {
     command: 'pnpm exec vite --port 4300 --strictPort',
     url: 'http://localhost:4300',

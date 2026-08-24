@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "bench": "playwright test",
+    "bench": "playwright test bench.spec.ts",
+    "offline": "playwright test offline.spec.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

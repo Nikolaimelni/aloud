@@ -20,3 +20,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm --filter @aloud/bench exec playwright install --with-deps chromium
+      # Cheap, and it is the one promise a unit test cannot keep.
+      - run: pnpm --filter @aloud/bench run offline

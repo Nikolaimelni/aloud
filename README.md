@@ -4,7 +4,7 @@ Live speech transcription that runs entirely in the browser. The model is fetche
 evaluated on your own machine, the audio never leaves the tab, and the transcript fills in
 while you are still talking.
 
-It is also unfinished. See Status before you clone it expecting a live transcript.
+![Confirmed text in black, the current guess in amber, and the meters underneath](docs/screenshot.png)
 
 ## Why
 
@@ -80,9 +80,26 @@ every window to thirty seconds. That is the floor under the step, and it is why 
 down to a second of lag needs a smaller model or a faster machine rather than a better
 setting.
 
+## Privacy
+
+The audio never goes anywhere. There is no server to send it to: the whole pipeline is four
+threads in your tab.
+
+Two things are fetched over the network, both on the first run and both cached afterwards.
+The model weights come from huggingface.co, and onnxruntime's WebAssembly comes from
+jsDelivr. After that it opens with the network off. Nothing is sent the other way: no
+analytics, no error reporting, no account, no request that carries a word of what you said.
+
+Recordings and transcripts are kept in IndexedDB on the machine you used, the last ten
+sessions, and "Delete all" means it. Clearing the site data clears them too, along with the
+cached weights.
+
+Capturing another tab shows the browser's own sharing indicator the whole time, which is the
+browser telling you the truth about what is being read.
+
 ## Status
 
-Week 5 of six. What exists:
+Week 6 of six. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
@@ -102,12 +119,17 @@ Week 5 of six. What exists:
 
 - a benchmark harness: fixtures, word error rate, real-time factor, confirmation lag
   percentiles, a report in CI artifacts
+- a service worker, so the page itself opens with the network off and not just the weights,
+  with a Playwright test that cuts the network and reloads to prove it
+- a phone gets the small model by default, the download size is on the button before you tap
+  it, and a tab sent to the background says so instead of pretending to listen
+- new words are announced to a screen reader once, rather than the whole transcript being
+  read again every time the guess changes
 
-What does not exist yet. There is no summary; the plan calls for an extractive one picked by
-sentence embeddings, which means another model to download and has not been built. There is no
-service worker either, so the model weights survive a reload but the app shell does not, and
-offline is half done. The fixture set is five clips with two references, which is enough to
-prove the harness and not enough to characterise the model.
+What does not exist yet. There is no summary, which is the one feature from the plan that did
+not get built. The fixture set is five clips with two references, which is enough to prove the
+harness and not enough to characterise the model. And the microphone path has been exercised
+by hand rather than by anything automated, because a benchmark cannot speak.
 
 ## Running it
 
@@ -137,6 +159,19 @@ That is what makes the week 5 accuracy run possible at all.
 
 ## Things it will not do
 
-No speaker labels. Working out who said what needs a separate embedding model plus
-clustering, and it fails loudly enough that people trust the whole transcript less. Maybe in
-a second version.
+**It is not instant on a phone.** The first visit downloads about 96 MB before it can
+transcribe anything, and the button says so before you tap it. After that the weights are
+cached and it starts in a second.
+
+**It does not label speakers.** Working out who said what needs a separate embedding model
+plus clustering, and it fails loudly enough that people trust the whole transcript less.
+
+**It does not summarise.** That was in the plan, as an extractive summary picked by sentence
+embeddings, and it is the piece that did not get built.
+
+**It is not as accurate as a paid API.** It is whisper-tiny or whisper-base, quantised to
+four bits, and on hard audio it will show you. The benchmark above is two easy English clips;
+treat it as a smoke test with arithmetic rather than a claim.
+
+**WebGPU is not automatically the fast one.** On the laptop this was built on, twelve CPU
+cores beat the GPU by two to one. The backend is a setting for exactly that reason.

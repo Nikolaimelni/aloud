@@ -30,7 +30,8 @@
               }
             ],
             "styles": ["src/styles.scss"],
-            "webWorkerTsConfig": "tsconfig.worker.json"
+            "webWorkerTsConfig": "tsconfig.worker.json",
+            "serviceWorker": "ngsw-config.json"
           },
           "configurations": {
             "production": {
@@ -46,7 +47,14 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "assets": [
+                {
+                  "glob": "**/*",
+                  "input": "public",
+                  "ignore": ["fixtures/**"]
+                }
+              ]
             },
             "development": {
               "optimization": false,
