@@ -3,7 +3,8 @@ import * as z from 'zod';
 
 const fixture = z.object({
   id: z.string(),
-  url: z.url(),
+  /** A stable remote file, or a path under `public/` for the few clips worth committing. */
+  url: z.union([z.url(), z.string().regex(/^\/[\w./-]+$/)]),
   language: z.string(),
   note: z.string(),
   source: z.string(),

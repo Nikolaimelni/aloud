@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
-  timeout: 30 * 60 * 1000,
+  timeout: 60 * 60 * 1000,
   workers: 1,
   reporter: [['list']],
   use: {

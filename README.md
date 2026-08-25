@@ -9,55 +9,66 @@ while you are still talking.
 ## Why
 
 Everything I could point at a work call wants the audio on someone else's server. That is a
-reasonable trade for accuracy, and a bad one for a standup where somebody mentions a
-customer by name. WebGPU and quantised Whisper have made the other trade viable: slower and
-a few points worse, but nothing to upload and nothing to delete afterwards.
+reasonable trade for accuracy, and a bad one for a standup where somebody mentions a customer
+by name. WebGPU and quantised Whisper make the other trade possible, and the point of the
+benchmark below is to say exactly what that trade costs: on English, very little; on Russian,
+more than I expected.
 
 ## Numbers
 
-There is a benchmark harness now, so these are produced by `pnpm bench` rather than by me
-driving a browser and writing down what I saw. It plays fixtures through the real pipeline in
-a real Chromium, scores the transcript against a reference where there is one, and writes a
-JSON and a Markdown report.
+These come out of `pnpm bench`, which plays fixtures through the real pipeline in a real
+Chromium, scores the transcript against a reference where there is one, and writes a report.
+Latest run: q4 weights on WASM with twelve threads, one pass over the whole file.
 
-Latest run, whisper at q4 on WASM with twelve threads, window step 1.5 s:
+| Language | Model | Clips | Reference words | WER    | Median WER | Mean cost |
+| -------- | ----- | ----- | --------------- | ------ | ---------- | --------- |
+| English  | tiny  | 2     | 39              | 2.6%   | 2.3%       | 0.24      |
+| English  | base  | 2     | 39              | 0.0%   | 0.0%       | 0.48      |
+| English  | small | 2     | 39              | 0.0%   | 0.0%       | 1.73      |
+| Russian  | tiny  | 8     | 194             | 149.0% | 44.5%      | 0.57      |
+| Russian  | base  | 8     | 194             | 25.3%  | 18.9%      | 0.75      |
+| Russian  | small | 8     | 194             | 15.5%  | 13.7%      | 2.67      |
 
-| Fixture           | Model | Mode      | Audio  | RTF  | WER  | Lag p50 | Lag p90 |
-| ----------------- | ----- | --------- | ------ | ---- | ---- | ------- | ------- |
-| librispeech-clean | tiny  | one pass  | 5.9 s  | 0.23 | 0.0% |         |         |
-| librispeech-clean | base  | one pass  | 5.9 s  | 0.58 | 0.0% |         |         |
-| jfk               | tiny  | one pass  | 11 s   | 0.15 | 4.5% |         |         |
-| jfk               | base  | one pass  | 11 s   | 0.32 | 0.0% |         |         |
-| dialogue          | tiny  | one pass  | 8 s    | 0.21 |      |         |         |
-| dialogue          | base  | one pass  | 8 s    | 0.46 |      |         |         |
-| russian           | tiny  | one pass  | 10.1 s | 0.21 |      |         |         |
-| russian           | base  | one pass  | 10.1 s | 0.45 |      |         |         |
-| ted-60s           | tiny  | streaming | 60 s   | 1.00 |      | 3.4 s   | 8.6 s   |
-| ted-60s           | base  | streaming | 60 s   | 1.50 |      | 6.4 s   | 9.6 s   |
+Cost is the real-time factor: seconds of compute per second of audio. Under 1 means it could
+keep up with someone talking. WER is pooled, total errors over total reference words; the
+median is there because of the next paragraph.
 
-What to read out of that.
+**That 149% is a decoder loop, not a typo.** On one six-second Russian clip, whisper-tiny
+emitted the word "нет" a hundred and ninety-six times and nothing else. This is the failure
+the stabiliser's loop trimming was written for, and the benchmark runs the model without the
+stabiliser on purpose, so the number is what the raw model does. In the app that clip would
+come out cut back to one "нет", which is wrong but not a wall. Consider it a measurement of
+what that piece of the pipeline is worth.
 
-Streaming costs four to five times a single pass over the same audio, because every second
-goes through the model several times before two passes agree on it. In this Chromium,
-whisper-base streaming runs at 1.5 times real time, which means it does not keep up;
-whisper-tiny sits at exactly 1.00, which means it only just does. The confirmed text runs
-three to six seconds behind at the median and around nine at the ninetieth percentile.
+**English is finished and Russian is not.** Two English clips, read speech and speech to a
+crowd, are transcribed word for word by anything at base or above. Spontaneous Russian over a
+phone-quality line is a median 19% wrong at base, ranging from 4% to 67% across eight clips.
+whisper-small gets the median to 14%, but costs 2.7 times real time, and nearly 5 times in the
+streaming loop.
 
-The word error rates are on two short English clips, which is not a benchmark, it is a smoke
-test with arithmetic. The Russian fixture has no reference transcript yet so it is only
-timed. Growing that set is an edit to `packages/bench/fixtures.json` and the most useful
-single thing left to do.
+So the honest shape of this project is **a live English transcriber, and a Russian one you
+point at a recording and wait for.** The translate switch runs the same model on the same
+audio, so translated Russian inherits the same recognition quality; it does not launder it.
 
-One normalisation detail worth the warning: before the normaliser spelled out "Mr." as
-"mister", LibriSpeech scored 5.9% and it was entirely that one word. Whisper evaluations live
-or die on text normalisation, and a WER quoted without saying which normaliser produced it is
-not a number.
+The streaming loop, measured on a minute of English at real speed:
+
+|                    | tiny  | base  | small  |
+| ------------------ | ----- | ----- | ------ |
+| cost               | 0.87  | 1.21  | 4.83   |
+| confirmed lag, p50 | 2.7 s | 4.4 s | 10.0 s |
+| confirmed lag, p90 | 7.3 s | 8.1 s | 15.0 s |
+
+One more caveat, because it has bitten this project twice. Word error rate is only as good as
+its text normaliser. Before this one spelled out "Mr." and turned "пятьдесят" into "50",
+LibriSpeech scored 5.9% and the first Russian clip 27%, and every one of those errors was the
+scoring rather than the model. A WER quoted without saying which normaliser produced it is not
+a number.
 
 The harness cannot get a GPU adapter here, headless or headed, so the table is WASM only, and
 CI is WASM only as well because the runners have no graphics card. Measured by hand in a
-desktop browser on the same machine, whisper-base at q4 sat around 0.62 on WebGPU against
-0.28 on WASM: twelve CPU cores beat this laptop's GPU, which is not what I expected and is
-exactly why the backend is a setting rather than a decision.
+desktop browser on the same machine, whisper-base at q4 sat around 0.62 on WebGPU against 0.28
+on WASM: twelve CPU cores beat this laptop's GPU, which is not what I expected and is exactly
+why the backend is a setting rather than a decision.
 
 ### Running it
 
@@ -65,8 +76,13 @@ exactly why the backend is a setting rather than a decision.
 pnpm bench
 ```
 
-Fixtures are fetched at run time from Hugging Face, so the repository stays small. The report
-lands in `packages/bench/report/`, and CI uploads it as an artifact.
+English audio is fetched at run time from Hugging Face. The eight Russian clips are committed,
+about two megabytes, because the only source with both audio and a reference transcript hands
+out URLs that expire. They come from SOVA RuDevices, CC BY 4.0. The report lands in
+`packages/bench/report/`, and CI uploads it as an artifact.
+
+Adding a fixture is an edit to `packages/bench/fixtures.json`. One with no reference is timed
+but not scored, which is how the two English clips without transcripts earn their place.
 
 ## Latency, in structure
 
@@ -128,10 +144,10 @@ Week 6 of six. What exists:
 - new words are announced to a screen reader once, rather than the whole transcript being
   read again every time the guess changes
 
-What does not exist yet. The fixture set is five clips with two references, which is enough to
-prove the harness and not enough to characterise the model. The microphone path has been
-exercised by hand rather than by anything automated, because a benchmark cannot speak. And the
-summary is English only, because the multilingual embedding model is 118 MB against 23.
+What does not exist yet. The fixture set is twelve clips, ten of them scored, which is enough
+to see the shape and not enough to publish. The microphone path has been exercised by hand
+rather than by anything automated, because a benchmark cannot speak. And the summary is
+English only, because the multilingual embedding model is 118 MB against 23.
 
 ## Running it
 
@@ -174,9 +190,9 @@ language model and a new way to be confidently wrong about what somebody said. I
 works on English; a Russian transcript is better summarised after translating it, which the
 app can do in the same pass.
 
-**It is not as accurate as a paid API.** It is whisper-tiny or whisper-base, quantised to
-four bits, and on hard audio it will show you. The benchmark above is two easy English clips;
-treat it as a smoke test with arithmetic rather than a claim.
+**It is not as accurate as a paid API**, and on Russian it is not close. See the numbers: a
+median 19% word error at base, 14% at small, and small costs nearly three times real time.
+English is a different story and the numbers say so too.
 
 **WebGPU is not automatically the fast one.** On the laptop this was built on, twelve CPU
 cores beat the GPU by two to one. The backend is a setting for exactly that reason.
