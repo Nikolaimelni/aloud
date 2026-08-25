@@ -7,6 +7,7 @@ import { AloudError } from '@aloud/core/errors';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
 import { textOf } from '@aloud/core/stream/stabilize';
 import { toMarkdown, toSegments, type Segment } from '@aloud/core/stream/transcript';
+import { pickKeyLines } from '@aloud/core/summary/select';
 import type { AudioFrame, AudioSource } from '@aloud/core/audio/source';
 import { Archive } from '../history/archive';
 import { ModelSettings } from '../model/model-settings';
@@ -58,6 +59,11 @@ export class SessionStore {
   /** Object URL of the recording, once there is one to play. */
   readonly recording = signal<string | null>(null);
 
+  readonly summary = signal<readonly Segment[]>([]);
+  readonly summarising = signal(false);
+  /** The embedding model downloads on first use, so the button says so until it has. */
+  readonly summaryLoaded = signal(false);
+
   /** Seconds of compute per second of audio. Over 1 and it is losing ground. */
   readonly realTimeFactor = computed(() => {
     const heard = this.heard();
@@ -84,6 +90,7 @@ export class SessionStore {
 
     this.error.set(null);
     this.segments.set([]);
+    this.summary.set([]);
     this.pending.set('');
     this.levelHistory = [];
     this.levels.set([]);
@@ -147,6 +154,7 @@ export class SessionStore {
 
     this.releaseRecording();
     this.segments.set(saved.segments);
+    this.summary.set([]);
     this.pending.set('');
     this.query.set('');
     this.translate.set(saved.translated);
@@ -158,11 +166,35 @@ export class SessionStore {
     }
   }
 
+  /** Pick the lines that carry the session, by sentence embedding rather than by a second model. */
+  async summarise(): Promise<void> {
+    const segments = this.segments();
+    if (segments.length === 0 || this.summarising()) return;
+
+    this.summarising.set(true);
+    try {
+      const { asr } = await this.host.ready();
+      const vectors = await asr.embed(segments.map((segment) => segment.text));
+      const picked = pickKeyLines(
+        segments.map((segment) => segment.text),
+        vectors,
+      );
+
+      this.summary.set(picked.map((index) => segments[index]!));
+      this.summaryLoaded.set(true);
+    } catch (cause) {
+      this.error.set(explain(cause));
+    } finally {
+      this.summarising.set(false);
+    }
+  }
+
   markdown(): string {
     return toMarkdown(this.segments(), {
       title: 'Aloud transcript',
       recordedAt: this.startedAt,
       translated: this.translate(),
+      highlights: this.summary(),
       ...(this.settings.language().trim() ? { language: this.settings.language().trim() } : {}),
     });
   }

@@ -74,6 +74,21 @@ export class AsrClient {
     return { transcript: event.transcript, elapsedMs: event.elapsedMs };
   }
 
+  /** Unit vectors, one per text, for the extractive summary. */
+  async embed(texts: readonly string[]): Promise<Float32Array[]> {
+    const event = await this.send({ kind: 'embed', id: this.nextId++, texts });
+    if (event.kind !== 'vectors') {
+      throw new AloudError('inference-failed', `worker answered embed with ${event.kind}`);
+    }
+
+    const [rows, width] = event.dims;
+    const vectors: Float32Array[] = [];
+    for (let row = 0; row < rows; row++) {
+      vectors.push(event.data.subarray(row * width, (row + 1) * width));
+    }
+    return vectors;
+  }
+
   dispose(): void {
     this.failAll(new AloudError('inference-failed', 'the client was disposed'));
     this.worker.terminate();

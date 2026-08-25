@@ -98,7 +98,27 @@
     @if (store.query().trim()) {
       <span class="count">{{ store.matches().length }} of {{ store.segments().length }} lines</span>
     }
+    <button type="button" [disabled]="store.summarising()" (click)="store.summarise()">
+      {{ store.summarising() ? 'Reading it back' : summariseLabel() }}
+    </button>
     <button type="button" (click)="download()">Export Markdown</button>
+  </div>
+}
+
+@if (store.summary().length > 0) {
+  <div class="gist">
+    <h3>The gist</h3>
+    <ul>
+      @for (line of store.summary(); track line.start) {
+        <li>
+          <button type="button" class="stamp" (click)="seekTo(line.start)">
+            {{ stamp(line.start) }}
+          </button>
+          {{ line.text }}
+        </li>
+      }
+    </ul>
+    <p class="note">Lines lifted out of the transcript by similarity, not rewritten.</p>
   </div>
 }
 

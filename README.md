@@ -121,15 +121,17 @@ Week 6 of six. What exists:
   percentiles, a report in CI artifacts
 - a service worker, so the page itself opens with the network off and not just the weights,
   with a Playwright test that cuts the network and reloads to prove it
+- an extractive summary: sentence embeddings, then the lines closest to the centre of what was
+  said that are not repeats of each other
 - a phone gets the small model by default, the download size is on the button before you tap
   it, and a tab sent to the background says so instead of pretending to listen
 - new words are announced to a screen reader once, rather than the whole transcript being
   read again every time the guess changes
 
-What does not exist yet. There is no summary, which is the one feature from the plan that did
-not get built. The fixture set is five clips with two references, which is enough to prove the
-harness and not enough to characterise the model. And the microphone path has been exercised
-by hand rather than by anything automated, because a benchmark cannot speak.
+What does not exist yet. The fixture set is five clips with two references, which is enough to
+prove the harness and not enough to characterise the model. The microphone path has been
+exercised by hand rather than by anything automated, because a benchmark cannot speak. And the
+summary is English only, because the multilingual embedding model is 118 MB against 23.
 
 ## Running it
 
@@ -166,8 +168,11 @@ cached and it starts in a second.
 **It does not label speakers.** Working out who said what needs a separate embedding model
 plus clustering, and it fails loudly enough that people trust the whole transcript less.
 
-**It does not summarise.** That was in the plan, as an extractive summary picked by sentence
-embeddings, and it is the piece that did not get built.
+**It does not write the summary, it picks it.** The gist is lines lifted out of the
+transcript by similarity, never rewritten, because an abstractive summary needs a second
+language model and a new way to be confidently wrong about what somebody said. It also only
+works on English; a Russian transcript is better summarised after translating it, which the
+app can do in the same pass.
 
 **It is not as accurate as a paid API.** It is whisper-tiny or whisper-base, quantised to
 four bits, and on hard audio it will show you. The benchmark above is two easy English clips;

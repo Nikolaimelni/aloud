@@ -61,6 +61,8 @@ export type MarkdownOptions = {
   readonly recordedAt?: Date;
   readonly language?: string;
   readonly translated?: boolean;
+  /** Lines the summary picked out, if anyone asked for one. */
+  readonly highlights?: readonly Segment[];
 };
 
 export function toMarkdown(segments: readonly Segment[], options: MarkdownOptions = {}): string {
@@ -83,6 +85,16 @@ export function toMarkdown(segments: readonly Segment[], options: MarkdownOption
 
   if (facts.length > 0) {
     lines.push(facts.join('. ') + '.', '');
+  }
+
+  const highlights = options.highlights ?? [];
+  if (highlights.length > 0) {
+    lines.push('## The gist', '');
+    for (const segment of highlights) {
+      lines.push(`- **${clock(segment.start)}** ${segment.text}`);
+    }
+    lines.push('', 'Picked out of the transcript by sentence similarity, not rewritten.', '');
+    lines.push('## Transcript', '');
   }
 
   for (const segment of segments) {

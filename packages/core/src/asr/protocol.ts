@@ -39,6 +39,12 @@ export type ModelProgress = {
 
 export type AsrRequest =
   | { readonly kind: 'load'; readonly id: number; readonly spec: AsrModelSpec }
+  /**
+   * Sentence embeddings for the summary. They live in this worker rather than a third one
+   * because transformers.js is already resident here, and they only ever run when Whisper
+   * has finished and is sitting idle.
+   */
+  | { readonly kind: 'embed'; readonly id: number; readonly texts: readonly string[] }
   | {
       readonly kind: 'transcribe';
       readonly id: number;
@@ -58,6 +64,13 @@ export type AsrEvent =
       readonly kind: 'transcript';
       readonly id: number;
       readonly transcript: Transcript;
+      readonly elapsedMs: number;
+    }
+  | {
+      readonly kind: 'vectors';
+      readonly id: number;
+      readonly dims: readonly [number, number];
+      readonly data: Float32Array;
       readonly elapsedMs: number;
     }
   | {

@@ -7,6 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { clock } from '@aloud/core/stream/transcript';
 import { LevelMeter } from '../capture/level-meter';
 import { MODEL_SIZE_MB, MODELS, ModelSettings, PRECISIONS } from '../model/model-settings';
 import { ModelHost } from '../model/model-host';
@@ -65,6 +66,10 @@ export class SessionPanel {
 
   protected readonly placeholder = computed(() =>
     this.store.listening() ? 'Listening.' : 'Nothing yet.',
+  );
+
+  protected readonly summariseLabel = computed(() =>
+    this.store.summaryLoaded() ? 'Summarise' : 'Summarise (23 MB)',
   );
 
   protected readonly done = computed(
@@ -137,6 +142,10 @@ export class SessionPanel {
 
   protected setSpeed(event: Event): void {
     this.store.fasterThanReal.set((event.target as HTMLInputElement).checked);
+  }
+
+  protected stamp(at: number): string {
+    return clock(at);
   }
 
   protected shortName(model: string): string {

@@ -1,4 +1,5 @@
 import { AloudError } from '../errors';
+import { Embedder } from '../summary/embed';
 import { WhisperEngine } from './engine';
 import type { AsrEvent, AsrRequest } from './protocol';
 
@@ -10,6 +11,7 @@ export function createAsrHandler(
   post: (event: AsrEvent) => void,
 ): (request: AsrRequest) => Promise<void> {
   const engine = new WhisperEngine();
+  const embedder = new Embedder();
 
   return async (request) => {
     const started = performance.now();
@@ -20,6 +22,18 @@ export function createAsrHandler(
           post({ kind: 'progress', progress }),
         );
         post({ kind: 'loaded', id: request.id, device, elapsedMs: performance.now() - started });
+        return;
+      }
+
+      if (request.kind === 'embed') {
+        const vectors = await embedder.embed(request.texts, engine.device ?? 'wasm');
+        post({
+          kind: 'vectors',
+          id: request.id,
+          dims: vectors.dims,
+          data: vectors.data,
+          elapsedMs: performance.now() - started,
+        });
         return;
       }
 
