@@ -1,5 +1,6 @@
 import { pipeline } from '@huggingface/transformers';
 import { AloudError } from '../errors';
+import { retry } from '../retry';
 import type { AsrDevice } from '../asr/protocol';
 
 type Extractor = Awaited<ReturnType<typeof pipeline<'feature-extraction'>>>;
@@ -26,10 +27,9 @@ export class Embedder {
     }
 
     try {
-      this.extractor ??= await pipeline('feature-extraction', EMBEDDING_MODEL, {
-        device,
-        dtype: 'q8',
-      });
+      this.extractor ??= await retry(() =>
+        pipeline('feature-extraction', EMBEDDING_MODEL, { device, dtype: 'q8' }),
+      );
 
       const output = await this.extractor([...texts], { pooling: 'mean', normalize: true });
       const [rows, width] = output.dims;

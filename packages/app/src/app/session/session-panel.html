@@ -148,6 +148,13 @@
   <p class="note">Click a timestamp to jump there. The recording never left the browser.</p>
 }
 
+@if (store.fallingBehind()) {
+  <p class="paused" role="status">
+    The model is not keeping up: {{ seconds(store.backlog()) }} seconds of audio are waiting. A
+    smaller model will help, or point this at a recording instead of a live microphone.
+  </p>
+}
+
 @if (store.passes() > 0) {
   <dl class="meters">
     <div>
@@ -181,7 +188,7 @@
       Model
       <select [value]="settings.model()" [disabled]="store.listening()" (change)="setModel($event)">
         @for (model of models; track model) {
-          <option [value]="model">{{ shortName(model) }}</option>
+          <option [value]="model">{{ shortName(model) }} — {{ sizeOf(model) }} MB</option>
         }
       </select>
     </label>

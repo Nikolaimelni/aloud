@@ -1,5 +1,6 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { AloudError } from '../errors';
+import { retry } from '../retry';
 import { TARGET_SAMPLE_RATE } from '../audio/source';
 
 /** Silero v5 takes 512 samples at 16 kHz and refuses every other length. */
@@ -54,22 +55,12 @@ export class SileroVad {
   }
 }
 
-/** A dropped connection on the way to the CDN should cost a second, not the whole session. */
-async function download(url: string, attempts = 3): Promise<Uint8Array> {
-  let last: unknown = null;
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`the weights came back ${response.status}`);
-      }
-      return new Uint8Array(await response.arrayBuffer());
-    } catch (cause) {
-      last = cause;
-      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+function download(url: string): Promise<Uint8Array> {
+  return retry(async () => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`the weights came back ${response.status}`);
     }
-  }
-
-  throw last instanceof Error ? last : new Error(String(last));
+    return new Uint8Array(await response.arrayBuffer());
+  });
 }

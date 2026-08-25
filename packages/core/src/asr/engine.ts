@@ -1,5 +1,6 @@
 import { pipeline } from '@huggingface/transformers';
 import { AloudError } from '../errors';
+import { retry } from '../retry';
 import type {
   AsrDevice,
   AsrModelSpec,
@@ -38,15 +39,17 @@ export class WhisperEngine {
     const device = spec.device === 'auto' ? await detectDevice() : spec.device;
 
     try {
-      this.transcriber = await pipeline('automatic-speech-recognition', spec.model, {
-        device,
-        dtype: spec.dtype ?? DEFAULT_DTYPE,
-        progress_callback: (info) => {
-          if (info.status === 'progress') {
-            onProgress({ file: info.file, loaded: info.loaded, total: info.total });
-          }
-        },
-      });
+      this.transcriber = await retry(() =>
+        pipeline('automatic-speech-recognition', spec.model, {
+          device,
+          dtype: spec.dtype ?? DEFAULT_DTYPE,
+          progress_callback: (info) => {
+            if (info.status === 'progress') {
+              onProgress({ file: info.file, loaded: info.loaded, total: info.total });
+            }
+          },
+        }),
+      );
     } catch (cause) {
       throw new AloudError('model-load-failed', `${spec.model} would not load on ${device}`, {
         cause,

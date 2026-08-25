@@ -17,6 +17,8 @@ export type SourceKind = 'microphone' | 'tab' | 'file';
 export type SessionPhase = 'idle' | 'loading' | 'listening' | 'error';
 
 const WORKLET_URL = 'worklets/capture.js';
+/** Seconds of unprocessed audio that mean the model is losing the race rather than breathing. */
+const BEHIND_SECONDS = 3;
 /** Enough level readings for about three seconds of meter. */
 const LEVELS = 140;
 
@@ -71,6 +73,15 @@ export class SessionStore {
   });
 
   readonly listening = computed(() => this.phase() === 'listening' || this.phase() === 'loading');
+
+  /**
+   * Audio arriving faster than the model clears it. Only meaningful live: a file is throttled
+   * on purpose and sits at the back-pressure limit by design, which is not the same thing.
+   */
+  readonly fallingBehind = computed(
+    () =>
+      this.phase() === 'listening' && this.source() !== 'file' && this.backlog() > BEHIND_SECONDS,
+  );
 
   readonly matches = computed(() => {
     const needle = this.query().trim().toLowerCase();

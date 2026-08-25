@@ -161,6 +161,23 @@ pnpm dev
 Pick a file and a model. The weights download once, then stay in the browser cache, so the
 first run is slow and the rest are not.
 
+The one thing a host has to get right is two headers:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: credentialless
+```
+
+They are what lets onnxruntime start its thread pool, which is worth roughly a factor of two
+on WASM, and the `credentialless` variant is what still allows the weights to come from a CDN.
+`packages/app/public/_headers` asks Cloudflare Pages for them and ships in the build output.
+Anywhere else, set them yourself; without them the app works and is half the speed.
+
+```
+pnpm build
+pnpm dlx wrangler pages deploy packages/app/dist/app/browser --project-name aloud
+```
+
 ## Layout
 
 ```
@@ -173,7 +190,8 @@ packages/bench  a page with no interface, driven by Playwright, that measures th
 
 Audio sits behind an `AudioSource` adapter and the model behind a worker protocol. Neither
 knows about the other, and neither knows whether a person or a fixture is on the far end.
-That is what makes the week 5 accuracy run possible at all.
+That adapter is the reason the benchmark exists at all: the same pipeline runs with a
+microphone on one end or a WAV file on the other, and only the file version can be scored.
 
 ## Things it will not do
 

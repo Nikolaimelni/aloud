@@ -64,6 +64,10 @@ export class SessionPanel {
 
   protected readonly sizeMb = computed(() => MODEL_SIZE_MB[this.settings.model()] ?? 150);
 
+  protected sizeOf(model: string): number {
+    return MODEL_SIZE_MB[model] ?? 150;
+  }
+
   protected readonly placeholder = computed(() =>
     this.store.listening() ? 'Listening.' : 'Nothing yet.',
   );
