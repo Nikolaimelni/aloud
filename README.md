@@ -87,7 +87,7 @@ desktop browser on the same machine, whisper-base at q4 sat around 0.62 on WebGP
 on WASM: twelve CPU cores beat this laptop's GPU, which is not what I expected and is exactly
 why the backend is a setting rather than a decision.
 
-### Running it
+### Running the benchmark
 
 ```
 pnpm bench
@@ -132,7 +132,7 @@ browser telling you the truth about what is being read.
 
 ## Status
 
-Week 6 of six. What exists:
+The six weeks are up and the plan is done. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
@@ -147,17 +147,17 @@ Week 6 of six. What exists:
   behind, how much audio is queued
 - timestamps you can click to hear that moment again, search across the transcript, and a
   Markdown export
-- a translate switch, which is the same model and the same pass: speak Russian, read English
+- a translate switch, the same model in the same pass: speak Russian, read English, with the
+  Russian recognition being exactly as good or bad as the numbers above say
 - the last ten sessions kept in IndexedDB, transcript and audio, reopenable
-
 - a benchmark harness: fixtures, word error rate, real-time factor, confirmation lag
   percentiles, a report in CI artifacts
 - a service worker, so the page itself opens with the network off and not just the weights,
   with a Playwright test that cuts the network and reloads to prove it
 - an extractive summary: sentence embeddings, then the lines closest to the centre of what was
   said that are not repeats of each other
-- a phone gets the small model by default, the download size is on the button before you tap
-  it, and a tab sent to the background says so instead of pretending to listen
+- a phone gets whisper-tiny by default, the download size is on the button before you tap it,
+  and a tab sent to the background says so instead of pretending to listen
 - new words are announced to a screen reader once, rather than the whole transcript being
   read again every time the guess changes
 
@@ -231,3 +231,36 @@ English is a different story and the numbers say so too.
 
 **WebGPU is not automatically the fast one.** On the laptop this was built on, twelve CPU
 cores beat the GPU by two to one. The backend is a setting for exactly that reason.
+
+## What I would do differently
+
+**I wrote a latency budget before I could measure anything, and it was wrong by a factor of
+four.** Not wrong in the arithmetic, wrong in the shape: I had the lag as one window step plus
+one pass, when it is two of each, because local agreement needs the same audio to come round
+twice. No amount of tuning the step fixes that, and I spent a day finding out by tuning the
+step. The budget table stayed in the README next to the measurement for a while, which was the
+most useful thing about it.
+
+**The measurement bugs outnumbered the code bugs.** The word error rate was wrong twice, both
+times because the normaliser scored "Mr." against "MISTER" and "50" against "пятьдесят" as
+mistakes. The offline test failed twice, both times because of headers and timing in the test
+rather than anything in the app. If I started again I would write the scorer and its tests
+before the thing being scored, and I would treat a surprising measurement as a suspect
+measurement first.
+
+**Two panels was wasted motion.** Weeks one and two grew a "transcribe a file" panel and a
+"stream a file" panel side by side, and week three deleted both for one view with a source
+picker. The pipeline underneath never changed. I should have built the source picker on day
+one and let the file be a source like any other, which is what the `AudioSource` adapter was
+for in the first place.
+
+**The SharedArrayBuffer ring never got built.** The plan called for one, the capture worklet
+still allocates a four kilobyte buffer on the audio thread fifty times a second, and nothing
+has glitched. Leaving it is the right call on the evidence and it is still the piece I would
+reach for first if a dropout ever showed up.
+
+**Whisper is the wrong shape for this and I would pick it again.** An encoder that pads every
+window to thirty seconds is the reason a pass costs a fixed second and the reason live Russian
+is out of reach here. A model built for streaming would be better at this job. It would also
+not have twenty language-quality comparisons, four quantisations and an ONNX export that runs
+in a browser tab today.

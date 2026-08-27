@@ -20,7 +20,8 @@ const STRIDE_SECONDS = 5;
  * Measured on an 11 s clip with whisper-base on an AMD GCN5 GPU: q4 everywhere runs at 0.23x
  * real time and pulls 142 MB, against 0.63x and 206 MB for the fp32 encoder that the
  * transformers.js examples reach for. On WASM the q8 decoder will not even build a session,
- * onnxruntime rejects the quantised graph. So q4, until the week 5 bench argues otherwise.
+ * onnxruntime rejects the quantised graph. The benchmark has since agreed: q4 loses nothing
+ * measurable on either language at any of the three sizes.
  */
 const DEFAULT_DTYPE: AsrPrecision = 'q4';
 

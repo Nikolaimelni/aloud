@@ -25,8 +25,10 @@ class Capture extends AudioWorkletProcessor {
       this.frame[this.filled++] = sum / channels.length;
 
       if (this.filled === FRAME) {
-        // TODO: allocating on the audio thread is asking for a glitch under load.
-        // Goes away in week 2 when the SharedArrayBuffer ring lands.
+        // Transferring detaches the buffer, so a new one is allocated here, on the audio
+        // thread, about fifty times a second. That is a real-time smell and it is deliberate:
+        // the allocation-free version needs a SharedArrayBuffer ring with atomics, and no
+        // dropout has turned up yet to justify one. If one does, that is the fix.
         this.port.postMessage(this.frame, [this.frame.buffer]);
         this.frame = new Float32Array(FRAME);
         this.filled = 0;
