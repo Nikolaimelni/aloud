@@ -34,11 +34,28 @@ keep up with someone talking. WER is pooled, total errors over total reference w
 median is there because of the next paragraph.
 
 **That 149% is a decoder loop, not a typo.** On one six-second Russian clip, whisper-tiny
-emitted the word "нет" a hundred and ninety-six times and nothing else. This is the failure
-the stabiliser's loop trimming was written for, and the benchmark runs the model without the
-stabiliser on purpose, so the number is what the raw model does. In the app that clip would
-come out cut back to one "нет", which is wrong but not a wall. Consider it a measurement of
-what that piece of the pipeline is worth.
+emitted the word "нет" a hundred and ninety-six times and nothing else, eleven hundred
+characters of it. The clip really does open with someone saying "не" five times over, and the
+model latched on and never let go.
+
+That clip is also run through the streaming path, so the two can be compared directly:
+
+| ru-03, whisper-tiny | one pass        | streaming    |
+| ------------------- | --------------- | ------------ |
+| WER                 | 853.8%          | 96.2%        |
+| what came out       | 1109 characters | 7 characters |
+| cost                | 2.5             | 15.5         |
+
+The stabiliser's loop trimming is what closes that gap. It does not rescue the content, the
+model simply cannot do this clip at tiny, but it turns a page of noise into an obviously empty
+answer, which is the better way to be wrong. Note the cost column too: when the model loops,
+every window loops, and the streaming pipeline burns fifteen times real time doing it. That is
+exactly when the interface says it is falling behind.
+
+The trimming only ever looks at the end of a hypothesis, because that is where a runaway
+decoder lives: it never stops, so the repetition is always at the tail. A repetition in the
+middle of a sentence is left alone. A genuine one at the end is not, and there are tests
+saying so in both directions.
 
 **English is finished and Russian is not.** Two English clips, read speech and speech to a
 crowd, are transcribed word for word by anything at base or above. Spontaneous Russian over a

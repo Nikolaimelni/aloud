@@ -86,6 +86,28 @@ describe('Stabilizer', () => {
     expect(state.pending).toEqual([]);
   });
 
+  it('only looks for the loop at the end, which is where a runaway decoder lives', () => {
+    const stabilizer = new Stabilizer();
+    const said = words('no no no no no listen I do not like it');
+
+    stabilizer.push(said);
+    const state = stabilizer.push(said);
+
+    expect(textOf(state.confirmed)).toBe('no no no no no listen I do not like it');
+  });
+
+  it('does cut a real repetition that happens to end the window', () => {
+    // The price of the rule above: a decoder that has come off the rails never stops, so the
+    // loop is always at the tail, and anything genuine sitting there looks identical.
+    const stabilizer = new Stabilizer();
+    const said = words('and I said no no no no no');
+
+    stabilizer.push(said);
+    const state = stabilizer.push(said);
+
+    expect(textOf(state.confirmed)).toBe('and I said no');
+  });
+
   it('leaves a repetition someone actually said alone', () => {
     const stabilizer = new Stabilizer();
     stabilizer.push(words('no no it does not'));

@@ -32,8 +32,13 @@ const MODELS = (process.env['BENCH_MODELS'] ?? 'tiny,base')
 const DEVICES = (process.env['BENCH_DEVICES'] ?? 'wasm,webgpu').split(',').map((d) => d.trim());
 const STEP = Number(process.env['BENCH_STEP'] ?? 1.5);
 
-/** One minute of audio at real speed per streaming run, so only one fixture gets that. */
-const LATENCY_FIXTURE = 'ted-60s';
+/**
+ * Streaming runs play at real speed, so they cost what they are worth in seconds and only a
+ * couple of fixtures get one. The minute of English is for the latency percentiles; the short
+ * Russian clip is there because whisper-tiny runs away into a decoder loop on it, and the
+ * difference between the two modes is the value of the stabiliser's loop trimming.
+ */
+const STREAM_FIXTURES = new Set((process.env['BENCH_STREAM'] ?? 'ted-60s,ru-03').split(','));
 
 /**
  * A configuration that cannot finish should cost one row, not the afternoon. Learned the hard
@@ -74,8 +79,9 @@ test('measure', async ({ page }) => {
     for (const model of MODELS) {
       for (const device of devices) {
         for (const fixture of fixtures) {
-          const modes: RunConfig['mode'][] =
-            fixture.id === LATENCY_FIXTURE ? ['oneshot', 'stream'] : ['oneshot'];
+          const modes: RunConfig['mode'][] = STREAM_FIXTURES.has(fixture.id)
+            ? ['oneshot', 'stream']
+            : ['oneshot'];
 
           for (const mode of modes) {
             const config: RunConfig = {
