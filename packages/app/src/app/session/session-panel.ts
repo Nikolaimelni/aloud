@@ -8,6 +8,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { clock } from '@aloud/core/stream/transcript';
+import { EMBEDDING_SIZE_MB } from '@aloud/core/summary/model';
 import { LevelMeter } from '../capture/level-meter';
 import { MODEL_SIZE_MB, MODELS, ModelSettings, PRECISIONS } from '../model/model-settings';
 import { ModelHost } from '../model/model-host';
@@ -73,7 +74,7 @@ export class SessionPanel {
   );
 
   protected readonly summariseLabel = computed(() =>
-    this.store.summaryLoaded() ? 'Summarise' : 'Summarise (23 MB)',
+    this.store.summaryLoaded() ? 'Summarise' : `Summarise (${EMBEDDING_SIZE_MB} MB)`,
   );
 
   protected readonly done = computed(

@@ -90,7 +90,7 @@ export class WhisperEngine {
   }
 }
 
-export async function detectDevice(): Promise<AsrDevice> {
+async function detectDevice(): Promise<AsrDevice> {
   if (!('gpu' in navigator)) {
     return 'wasm';
   }

@@ -1,5 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { microphone, tabAudio, type MediaCapture } from '@aloud/core/audio/capture';
+import { levelOf } from '@aloud/core/audio/level';
 import { Recorder } from '@aloud/core/audio/recorder';
 import { tapFrames } from '@aloud/core/audio/tap';
 import { WavSource } from '@aloud/core/audio/wav-source';
@@ -272,22 +273,12 @@ export class SessionStore {
   private observe(frame: AudioFrame): void {
     this.recorder.push(frame.samples);
 
-    this.levelHistory.push(level(frame.samples));
+    this.levelHistory.push(levelOf(frame.samples));
     if (this.levelHistory.length > LEVELS) {
       this.levelHistory = this.levelHistory.slice(-LEVELS);
     }
     this.levels.set([...this.levelHistory]);
   }
-}
-
-/** RMS mapped onto -60..0 dBFS, because a linear meter reads as dead below half volume. */
-function level(samples: Float32Array): number {
-  let sum = 0;
-  for (const sample of samples) {
-    sum += sample * sample;
-  }
-  const db = 20 * Math.log10(Math.max(Math.sqrt(sum / samples.length), 1e-6));
-  return Math.min(1, Math.max(0, (db + 60) / 60));
 }
 
 function explain(cause: unknown): string {

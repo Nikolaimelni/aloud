@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, toMarkdown, toSegments } from './transcript';
+import { clock, highlight, toMarkdown, toSegments } from './transcript';
 import type { Word } from './stabilize';
 
 function word(text: string, start: number, end: number): Word {
@@ -77,5 +77,36 @@ describe('toMarkdown', () => {
   it('says when the text has been translated', () => {
     const markdown = toMarkdown([{ start: 0, end: 1, text: 'Hello.' }], { translated: true });
     expect(markdown).toContain('Translated to English');
+  });
+});
+
+describe('highlight', () => {
+  it('hands back the whole line when nothing is being searched for', () => {
+    expect(highlight('we ship on friday', '')).toEqual([{ text: 'we ship on friday', hit: false }]);
+  });
+
+  it('marks every occurrence and keeps the original spelling', () => {
+    expect(highlight('Friday, and then friday again', 'friday')).toEqual([
+      { text: 'Friday', hit: true },
+      { text: ', and then ', hit: false },
+      { text: 'friday', hit: true },
+      { text: ' again', hit: false },
+    ]);
+  });
+
+  it('loses nothing: the parts always put the line back together', () => {
+    const line = 'so the deploy goes out on wednesday, deploy again on friday';
+
+    for (const needle of ['deploy', 'o', 'wednesday', 'zzz', 'so']) {
+      expect(
+        highlight(line, needle)
+          .map((part) => part.text)
+          .join(''),
+      ).toBe(line);
+    }
+  });
+
+  it('says nothing matched rather than inventing an empty part', () => {
+    expect(highlight('nothing here', 'friday')).toEqual([{ text: 'nothing here', hit: false }]);
   });
 });

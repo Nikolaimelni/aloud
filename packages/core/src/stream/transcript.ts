@@ -104,6 +104,42 @@ export function toMarkdown(segments: readonly Segment[], options: MarkdownOption
   return lines.join('\n').trimEnd() + '\n';
 }
 
+export type TextPart = {
+  readonly text: string;
+  readonly hit: boolean;
+};
+
+/**
+ * Splits a line around every occurrence of a search term, so the view can mark the matches
+ * without putting markup into the transcript itself.
+ */
+export function highlight(text: string, needle: string): TextPart[] {
+  if (!needle) {
+    return [{ text, hit: false }];
+  }
+
+  const parts: TextPart[] = [];
+  const haystack = text.toLowerCase();
+  const wanted = needle.toLowerCase();
+  let at = 0;
+
+  for (;;) {
+    const found = haystack.indexOf(wanted, at);
+    if (found === -1) break;
+
+    if (found > at) {
+      parts.push({ text: text.slice(at, found), hit: false });
+    }
+    parts.push({ text: text.slice(found, found + wanted.length), hit: true });
+    at = found + wanted.length;
+  }
+
+  if (at < text.length) {
+    parts.push({ text: text.slice(at), hit: false });
+  }
+  return parts;
+}
+
 export function clock(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(whole / 60);

@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { clock, type Segment } from '@aloud/core/stream/transcript';
+import { clock, highlight, type Segment, type TextPart } from '@aloud/core/stream/transcript';
 
 /** Close enough to the bottom that the reader clearly wants to follow along. */
 const STICKY_PX = 24;
@@ -18,7 +18,7 @@ type Row = {
   readonly start: number;
   readonly stamp: string;
   readonly label: string;
-  readonly parts: readonly { text: string; hit: boolean }[];
+  readonly parts: readonly TextPart[];
   readonly active: boolean;
 };
 
@@ -58,7 +58,7 @@ export class TranscriptView {
         start: segment.start,
         stamp: clock(segment.start),
         label: `Play from ${clock(segment.start)}`,
-        parts: split(segment.text, needle),
+        parts: highlight(segment.text, needle),
         active: at >= segment.start && at < segment.end,
       }));
   });
@@ -101,23 +101,4 @@ export class TranscriptView {
     const element = this.scroller().nativeElement;
     element.scrollTop = element.scrollHeight;
   }
-}
-
-function split(text: string, needle: string): { text: string; hit: boolean }[] {
-  if (!needle) return [{ text, hit: false }];
-
-  const parts: { text: string; hit: boolean }[] = [];
-  const haystack = text.toLowerCase();
-  let at = 0;
-
-  for (;;) {
-    const found = haystack.indexOf(needle, at);
-    if (found === -1) break;
-    if (found > at) parts.push({ text: text.slice(at, found), hit: false });
-    parts.push({ text: text.slice(found, found + needle.length), hit: true });
-    at = found + needle.length;
-  }
-
-  if (at < text.length) parts.push({ text: text.slice(at), hit: false });
-  return parts;
 }

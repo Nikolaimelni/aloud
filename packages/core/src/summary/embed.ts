@@ -2,15 +2,9 @@ import { pipeline } from '@huggingface/transformers';
 import { AloudError } from '../errors';
 import { retry } from '../retry';
 import type { AsrDevice } from '../asr/protocol';
+import { EMBEDDING_MODEL } from './model';
 
 type Extractor = Awaited<ReturnType<typeof pipeline<'feature-extraction'>>>;
-
-/**
- * English only, and 23 MB quantised. The multilingual equivalent is 118 MB, which is a lot to
- * download for a secondary feature; a Russian transcript is better summarised after being
- * translated, which this app can already do.
- */
-export const EMBEDDING_MODEL = 'Xenova/all-MiniLM-L6-v2';
 
 export type Vectors = {
   readonly dims: readonly [number, number];
