@@ -16,11 +16,12 @@ export type WavSourceOptions = {
 
 /**
  * The same pipeline the microphone feeds, fed from a file instead. This is the adapter that
- * makes accuracy measurable: no permissions, no soundcard, no human saying the same sentence
- * twice, and a run that either matches the expected transcript or does not.
+ * makes accuracy measurable: the same audio on every run, and a transcript that either
+ * matches the reference or does not.
  */
 export class WavSource implements AudioSource {
   private running = false;
+  private stopped = false;
   private done: () => void = () => {};
 
   readonly finished = new Promise<void>((resolve) => {
@@ -37,6 +38,8 @@ export class WavSource implements AudioSource {
     if (this.running) {
       throw new AloudError('capture-failed', 'source is already running');
     }
+    // Stopped before it started: the session is over, and `finished` has already resolved.
+    if (this.stopped) return;
 
     const { sampleRate, samples } = decodeWav(this.options.data);
     const frameSize = this.options.frameSize ?? 1024;
@@ -47,6 +50,7 @@ export class WavSource implements AudioSource {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
     this.running = false;
     this.done();
   }

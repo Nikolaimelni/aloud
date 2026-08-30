@@ -59,18 +59,57 @@ export function toSegments(words: readonly Word[], options: SegmentOptions = {})
 export type MarkdownOptions = {
   readonly title?: string;
   readonly recordedAt?: Date;
+  /** IANA zone for the recording time. Left out, wherever the code is running. */
+  readonly timeZone?: string;
   readonly language?: string;
   readonly translated?: boolean;
   /** Lines the summary picked out, if anyone asked for one. */
   readonly highlights?: readonly Segment[];
 };
 
+export type LocalStamp = {
+  /** 2026-09-21 */
+  readonly date: string;
+  /** 15:00 */
+  readonly time: string;
+  /** GMT+3, UTC */
+  readonly zone: string;
+};
+
+/**
+ * Wall-clock time in a zone, split so a file name and a heading can both use it. toISOString
+ * would give UTC with nothing to say so, which puts every recording three hours early in Moscow.
+ */
+export function localStamp(at: Date, timeZone?: string): LocalStamp {
+  const parts = new Map(
+    new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZoneName: 'short',
+      ...(timeZone ? { timeZone } : {}),
+    })
+      .formatToParts(at)
+      .map((part) => [part.type, part.value]),
+  );
+
+  return {
+    date: `${parts.get('year')}-${parts.get('month')}-${parts.get('day')}`,
+    time: `${parts.get('hour')}:${parts.get('minute')}`,
+    zone: parts.get('timeZoneName') ?? '',
+  };
+}
+
 export function toMarkdown(segments: readonly Segment[], options: MarkdownOptions = {}): string {
   const lines: string[] = [`# ${options.title ?? 'Transcript'}`, ''];
 
   const facts: string[] = [];
   if (options.recordedAt) {
-    facts.push(`Recorded ${options.recordedAt.toISOString().slice(0, 16).replace('T', ' ')}`);
+    const { date, time, zone } = localStamp(options.recordedAt, options.timeZone);
+    facts.push(`Recorded ${date} ${time} ${zone}`);
   }
   const last = segments[segments.length - 1];
   if (last) {
@@ -82,10 +121,7 @@ export function toMarkdown(segments: readonly Segment[], options: MarkdownOption
     facts.push(`Language: ${options.language}`);
   }
   facts.push('Transcribed on device with Whisper, so expect mistakes');
-
-  if (facts.length > 0) {
-    lines.push(facts.join('. ') + '.', '');
-  }
+  lines.push(facts.join('. ') + '.', '');
 
   const highlights = options.highlights ?? [];
   if (highlights.length > 0) {

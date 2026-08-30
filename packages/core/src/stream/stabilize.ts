@@ -31,8 +31,8 @@ const CONTEXT_MARGIN = 0.4;
  * is only printed as final once two consecutive guesses put it in the same place. Everything
  * after that stays visibly provisional, because it will change.
  *
- * This is the one piece of the project that is an algorithm rather than a library call, and
- * the one place where a bug looks like "the text flickers sometimes" instead of a stack trace.
+ * A bug in here looks like "the text flickers sometimes" rather than a stack trace, which is
+ * why the tests walk it pass by pass.
  */
 export class Stabilizer {
   private readonly settled: Word[] = [];
@@ -61,7 +61,13 @@ export class Stabilizer {
 
   push(hypothesis: readonly Word[]): StabilizerState {
     const boundary = this.confirmedUntil;
-    const fresh = trimLoop(hypothesis.filter((word) => word.end > boundary + OVERLAP_TOLERANCE));
+    const fresh = trimLoop(
+      dropEcho(
+        this.settled,
+        hypothesis.filter((word) => word.end > boundary + OVERLAP_TOLERANCE),
+        boundary,
+      ),
+    );
 
     const agreed = agreementLength(this.previous, fresh);
     this.settled.push(...fresh.slice(0, agreed));
@@ -78,11 +84,6 @@ export class Stabilizer {
     this.settled.push(...this.previous);
     this.previous = [];
     return this.state;
-  }
-
-  reset(): void {
-    this.settled.length = 0;
-    this.previous = [];
   }
 }
 
@@ -111,6 +112,22 @@ function same(left: Word, right: Word): boolean {
 function key(text: string): string {
   const stripped = text.toLowerCase().replace(/[^\p{L}\p{N}']/gu, '');
   return stripped || text.trim();
+}
+
+/**
+ * The window keeps CONTEXT_MARGIN of settled audio, so the model hears the last confirmed word
+ * again. The time filter drops it unless its end timestamp lands late, and then it would be
+ * printed twice. A word that starts inside settled audio and repeats the last settled word is
+ * that word heard again, not a new one.
+ */
+function dropEcho(
+  settled: readonly Word[],
+  fresh: readonly Word[],
+  boundary: number,
+): readonly Word[] {
+  const first = fresh[0];
+  const last = settled.at(-1);
+  return first && last && first.start < boundary && same(first, last) ? fresh.slice(1) : fresh;
 }
 
 function trimLoop(words: readonly Word[]): readonly Word[] {

@@ -75,6 +75,33 @@ describe('Stabilizer', () => {
     expect(textOf(state.pending)).toBe('five');
   });
 
+  it('does not print a word twice when the context margin hears it again', () => {
+    const stabilizer = new Stabilizer();
+    stabilizer.push(words('one two three'));
+    stabilizer.push(words('one two three four'));
+
+    // "three" ended at 0.9. The next window starts inside the margin, hears it again, and
+    // puts its end late enough to get past the time filter.
+    const state = stabilizer.push([
+      { text: ' three', start: 0.62, end: 1.05 },
+      { text: ' four', start: 1.05, end: 1.3 },
+      { text: ' five', start: 1.3, end: 1.6 },
+    ]);
+
+    expect(textOf(state.confirmed)).toBe('one two three four');
+    expect(textOf(state.pending)).toBe('five');
+  });
+
+  it('keeps a repeated word that starts after the settled audio', () => {
+    const stabilizer = new Stabilizer();
+    stabilizer.push(words('I said no'));
+    stabilizer.push(words('I said no no'));
+
+    const state = stabilizer.push(words('I said no no'));
+
+    expect(textOf(state.confirmed)).toBe('I said no no');
+  });
+
   it('cuts a decoder loop back to one copy', () => {
     const stabilizer = new Stabilizer();
     const looping = words('thank you thank you thank you thank you');

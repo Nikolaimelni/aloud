@@ -29,7 +29,7 @@ const DEFAULT_MAX_WINDOW = 20;
  */
 export class Chunker {
   private readonly step: number;
-  private readonly maxWindow: number;
+  private readonly ceiling: number;
 
   private data: Float32Array;
   private length = 0;
@@ -42,12 +42,10 @@ export class Chunker {
 
   constructor(options: ChunkerOptions = {}) {
     this.step = options.stepSeconds ?? DEFAULT_STEP;
-    this.maxWindow = options.maxWindowSeconds ?? DEFAULT_MAX_WINDOW;
+    this.ceiling = Math.round(
+      (options.maxWindowSeconds ?? DEFAULT_MAX_WINDOW) * TARGET_SAMPLE_RATE,
+    );
     this.data = new Float32Array(TARGET_SAMPLE_RATE * 8);
-  }
-
-  get bufferedSeconds(): number {
-    return this.length / TARGET_SAMPLE_RATE;
   }
 
   /** Session time of the newest sample it has been given. */
@@ -75,52 +73,41 @@ export class Chunker {
 
     // Nobody spoke since the last window. Running the model on silence is how Whisper ends
     // up thanking you for watching.
-    if (this.lastSpeechAt <= this.lastWindowAt) {
+    if (!this.spokeSinceLastWindow()) {
       this.lastWindowAt = this.heard;
       return null;
     }
 
-    const from = Math.max(0, this.length - Math.round(this.maxWindow * TARGET_SAMPLE_RATE));
     this.lastWindowAt = this.heard;
-
-    return {
-      samples: this.data.slice(from, this.length),
-      start: this.bufferStart + from / TARGET_SAMPLE_RATE,
-    };
+    return this.window();
   }
 
-  /** Hand over whatever is left, step or no step. For the end of a recording. */
+  /**
+   * Hand over whatever is left, step or no step, for the end of a recording. Same rule about
+   * silence as take(), or a tail nobody spoke in would reach the model as pure silence.
+   */
   flush(): AudioWindow | null {
-    if (this.length === 0) return null;
+    if (this.length === 0 || !this.spokeSinceLastWindow()) return null;
 
-    const from = Math.max(0, this.length - Math.round(this.maxWindow * TARGET_SAMPLE_RATE));
     this.lastWindowAt = this.heard;
-
-    return {
-      samples: this.data.slice(from, this.length),
-      start: this.bufferStart + from / TARGET_SAMPLE_RATE,
-    };
+    return this.window();
   }
 
   /** Everything before this second is settled, so stop carrying it. */
   commit(until: number): void {
-    const drop = Math.min(
-      this.length,
-      Math.max(0, Math.round((until - this.bufferStart) * TARGET_SAMPLE_RATE)),
-    );
-    if (drop === 0) return;
-
-    this.data.copyWithin(0, drop, this.length);
-    this.length -= drop;
-    this.bufferStart += drop / TARGET_SAMPLE_RATE;
+    this.drop(Math.round((until - this.bufferStart) * TARGET_SAMPLE_RATE));
   }
 
-  reset(): void {
-    this.length = 0;
-    this.bufferStart = 0;
-    this.heard = 0;
-    this.lastWindowAt = 0;
-    this.lastSpeechAt = -1;
+  private spokeSinceLastWindow(): boolean {
+    return this.lastSpeechAt > this.lastWindowAt;
+  }
+
+  private window(): AudioWindow {
+    const from = Math.max(0, this.length - this.ceiling);
+    return {
+      samples: this.data.slice(from, this.length),
+      start: this.bufferStart + from / TARGET_SAMPLE_RATE,
+    };
   }
 
   private append(samples: Float32Array): void {
@@ -131,5 +118,21 @@ export class Chunker {
     }
     this.data.set(samples, this.length);
     this.length += samples.length;
+
+    // No window reaches further back than the ceiling. Without this a silent hour stays in
+    // memory, because commit() only runs after a pass and silence never gets one. Trimmed a
+    // second at a time, since trimming every frame would copy the whole ceiling each time.
+    if (this.length > this.ceiling + TARGET_SAMPLE_RATE) {
+      this.drop(this.length - this.ceiling);
+    }
+  }
+
+  private drop(count: number): void {
+    const samples = Math.min(this.length, Math.max(0, count));
+    if (samples === 0) return;
+
+    this.data.copyWithin(0, samples, this.length);
+    this.length -= samples;
+    this.bufferStart += samples / TARGET_SAMPLE_RATE;
   }
 }

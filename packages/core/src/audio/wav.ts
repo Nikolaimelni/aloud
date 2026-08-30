@@ -38,11 +38,15 @@ export function decodeWav(data: ArrayBuffer): DecodedWav {
     const size = view.getUint32(at + 4, true);
     const start = at + 8;
 
-    if (id === 'fmt ' && size >= 16) {
+    if (id === 'fmt ' && size >= 16 && start + 16 <= data.byteLength) {
       format = readFormat(view, start, size);
     } else if (id === 'data') {
-      // Streamed files sometimes declare a size they never wrote, or none at all.
-      body = { start, length: Math.min(size, data.byteLength - start) };
+      // Streamed files sometimes declare a size they never wrote, or write 0 and never come
+      // back to fix it. Either way the audio runs to the end of the file, and whatever
+      // follows a 0 is samples, not chunks.
+      const available = data.byteLength - start;
+      body = { start, length: size === 0 ? available : Math.min(size, available) };
+      if (size === 0) break;
     }
 
     at = start + size + (size % 2);
@@ -70,7 +74,7 @@ function chunkId(view: DataView, at: number): string {
 
 function readFormat(view: DataView, at: number, size: number): WavFormat {
   let code = view.getUint16(at, true);
-  if (code === EXTENSIBLE && size >= 40) {
+  if (code === EXTENSIBLE && size >= 40 && at + 26 <= view.byteLength) {
     // WAVE_FORMAT_EXTENSIBLE keeps the real code in the first two bytes of a GUID.
     code = view.getUint16(at + 24, true);
   }
@@ -106,7 +110,7 @@ function readSamples(
 }
 
 function sampleReader(format: WavFormat): (view: DataView, at: number) => number {
-  if (format.channels < 1 || (format.bits !== 8 && format.bits % 8 !== 0)) {
+  if (format.channels < 1 || format.bits % 8 !== 0) {
     throw new AloudError('unsupported-wav-format', 'nonsensical channel count or bit depth');
   }
 

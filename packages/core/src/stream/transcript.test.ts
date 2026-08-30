@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, highlight, toMarkdown, toSegments } from './transcript';
+import { clock, highlight, localStamp, toMarkdown, toSegments } from './transcript';
 import type { Word } from './stabilize';
 
 function word(text: string, start: number, end: number): Word {
@@ -64,11 +64,15 @@ describe('toMarkdown', () => {
         { start: 0, end: 4, text: 'So the deploy goes out Wednesday.' },
         { start: 6.5, end: 9, text: 'And we roll back by hand if it breaks.' },
       ],
-      { title: 'Standup', recordedAt: new Date('2026-09-12T09:30:00Z') },
+      {
+        title: 'Standup',
+        recordedAt: new Date('2026-09-12T09:30:00Z'),
+        timeZone: 'Europe/Moscow',
+      },
     );
 
     expect(markdown).toContain('# Standup');
-    expect(markdown).toContain('Recorded 2026-09-12 09:30');
+    expect(markdown).toContain('Recorded 2026-09-12 12:30 GMT+3');
     expect(markdown).toContain('**00:00** So the deploy goes out Wednesday.');
     expect(markdown).toContain('**00:06** And we roll back by hand if it breaks.');
     expect(markdown.endsWith('\n')).toBe(true);
@@ -77,6 +81,17 @@ describe('toMarkdown', () => {
   it('says when the text has been translated', () => {
     const markdown = toMarkdown([{ start: 0, end: 1, text: 'Hello.' }], { translated: true });
     expect(markdown).toContain('Translated to English');
+  });
+});
+
+describe('localStamp', () => {
+  it('reads the clock in the zone it is given, date included', () => {
+    expect(localStamp(new Date('2026-09-12T22:30:00Z'), 'Europe/Moscow')).toEqual({
+      date: '2026-09-13',
+      time: '01:30',
+      zone: 'GMT+3',
+    });
+    expect(localStamp(new Date('2026-09-12T22:30:00Z'), 'UTC').time).toBe('22:30');
   });
 });
 

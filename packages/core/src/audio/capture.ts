@@ -15,14 +15,15 @@ export type CaptureOptions = {
 };
 
 /**
- * Anything the browser will hand over as a `MediaStream`: a microphone, a shared tab, later
- * whatever else. The graph, the resampler and the frame timing are identical, so they live
+ * Anything the browser will hand over as a `MediaStream`, which so far means a microphone or
+ * a shared tab. The graph, the resampler and the frame timing are identical, so they live
  * here once and the two factories below only differ in how they ask for permission.
  */
 export class MediaCapture implements AudioSource {
   private context: AudioContext | null = null;
   private stream: MediaStream | null = null;
   private node: AudioWorkletNode | null = null;
+  private stopped = false;
   private done: () => void = () => {};
 
   readonly finished = new Promise<void>((resolve) => {
@@ -35,11 +36,6 @@ export class MediaCapture implements AudioSource {
     this.options = options;
   }
 
-  /** What the device actually gave us, once running. Rarely 16 kHz, hence the resampler. */
-  get deviceSampleRate(): number | null {
-    return this.context?.sampleRate ?? null;
-  }
-
   /** Ask the browser to pick the graph back up, for when a tab comes to the foreground. */
   async resume(): Promise<void> {
     await this.context?.resume();
@@ -50,7 +46,14 @@ export class MediaCapture implements AudioSource {
       throw new AloudError('capture-failed', 'source is already running');
     }
 
-    this.stream = await this.options.open();
+    const stream = await this.options.open();
+    // Stop can land while the permission prompt is open. Without this the microphone would
+    // come on after the session had already ended.
+    if (this.stopped) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    this.stream = stream;
 
     // An AudioContext will happily resample to 16 kHz for us, but then live audio and the
     // WAV fixtures in CI would travel through different code. One resampler, ours, always.
@@ -63,6 +66,7 @@ export class MediaCapture implements AudioSource {
       await this.stop();
       throw new AloudError('worklet-load-failed', 'capture worklet did not load', { cause });
     }
+    if (this.stopped) return;
 
     const resampler = new Resampler(context.sampleRate);
     const delay = resampler.delaySamples / TARGET_SAMPLE_RATE;
@@ -80,7 +84,7 @@ export class MediaCapture implements AudioSource {
     // The worklet writes nothing to its output; the chain exists so the graph keeps
     // scheduling it, and the silent gain makes sure of it if that ever changes.
     const sink = new GainNode(context, { gain: 0 });
-    context.createMediaStreamSource(this.stream).connect(node).connect(sink);
+    context.createMediaStreamSource(stream).connect(node).connect(sink);
     sink.connect(context.destination);
 
     context.onstatechange = () => {
@@ -91,6 +95,7 @@ export class MediaCapture implements AudioSource {
   }
 
   async stop(): Promise<void> {
+    this.stopped = true;
     this.node?.port.close();
     this.node?.disconnect();
     this.node = null;
@@ -100,7 +105,11 @@ export class MediaCapture implements AudioSource {
 
     const context = this.context;
     this.context = null;
-    await context?.close();
+    if (context) {
+      // close() fires statechange with 'closed', which would read as the tab being suspended.
+      context.onstatechange = null;
+      await context.close();
+    }
 
     this.done();
   }

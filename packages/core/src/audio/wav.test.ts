@@ -165,6 +165,14 @@ describe('decodeWav', () => {
     expect(decoded.samples.length).toBe(40);
   });
 
+  it('reads to the end of the file when the data size was left at zero', () => {
+    const decoded = decodeWav(
+      buildWav({ sampleRate: 16_000, bits: 16, channels: [ramp(40)], declaredDataBytes: 0 }),
+    );
+
+    expect(decoded.samples.length).toBe(40);
+  });
+
   it('rejects something that is not a WAV at all', () => {
     expect(() => decodeWav(new ArrayBuffer(128))).toThrow(
       expect.objectContaining({ code: 'invalid-wav' }),
