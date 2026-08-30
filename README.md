@@ -57,6 +57,9 @@ decoder lives: it never stops, so the repetition is always at the tail. A repeti
 middle of a sentence is left alone. A genuine one at the end is not, and there are tests
 saying so in both directions.
 
+There is a longer write-up of the streaming design and everything that went wrong building it
+in [docs/local-agreement.md](docs/local-agreement.md).
+
 **English is finished and Russian is not.** Two English clips, read speech and speech to a
 crowd, are transcribed word for word by anything at base or above. Spontaneous Russian over a
 phone-quality line is a median 19% wrong at base, ranging from 4% to 67% across eight clips.
@@ -177,6 +180,11 @@ pnpm dev
 
 Pick a file and a model. The weights download once, then stay in the browser cache, so the
 first run is slow and the rest are not.
+
+`pnpm install` will mention three dependencies whose build scripts it skipped:
+`onnxruntime-node`, `sharp` and `protobufjs`. They arrive with transformers.js, which also
+runs on a server and on images, and none of them is reachable from a browser tab. Leave them
+unbuilt.
 
 The one thing a host has to get right is two headers:
 
