@@ -2,7 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import * as z from 'zod';
 
-/** Ten sessions of a long meeting is already a couple of hundred megabytes. */
+/** An hour of 16 kHz audio is about 115 MB, so ten long meetings already run to a gigabyte. */
 const KEEP = 10;
 
 const segment = z.object({
@@ -65,12 +65,15 @@ export class Archive {
     this.sessions.set(parsed.reverse());
   }
 
+  /** Transcript and audio in one transaction, so a full disk cannot keep one without the other. */
   async save(session: SessionSummary, audio: Blob | null): Promise<void> {
     const db = await this.open();
-    await db.put('sessions', session);
-    if (audio) {
-      await db.put('audio', audio, session.id);
-    }
+    const tx = db.transaction(['sessions', 'audio'], 'readwrite');
+    await Promise.all([
+      tx.objectStore('sessions').put(session),
+      audio ? tx.objectStore('audio').put(audio, session.id) : null,
+      tx.done,
+    ]);
 
     await this.prune(db);
     await this.refresh();
@@ -87,25 +90,37 @@ export class Archive {
   }
 
   async remove(id: string): Promise<void> {
-    const db = await this.open();
-    await db.delete('sessions', id);
-    await db.delete('audio', id);
+    await this.drop(await this.open(), [id]);
     await this.refresh();
   }
 
   async clear(): Promise<void> {
     const db = await this.open();
-    await db.clear('sessions');
-    await db.clear('audio');
+    const tx = db.transaction(['sessions', 'audio'], 'readwrite');
+    await Promise.all([
+      tx.objectStore('sessions').clear(),
+      tx.objectStore('audio').clear(),
+      tx.done,
+    ]);
     await this.refresh();
   }
 
   private async prune(db: IDBPDatabase<Archive1>): Promise<void> {
     const ids = await db.getAllKeysFromIndex('sessions', 'by-date');
-    for (const id of ids.slice(0, Math.max(0, ids.length - KEEP))) {
-      await db.delete('sessions', id);
-      await db.delete('audio', id);
-    }
+    await this.drop(db, ids.slice(0, Math.max(0, ids.length - KEEP)));
+  }
+
+  private async drop(db: IDBPDatabase<Archive1>, ids: readonly string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    const tx = db.transaction(['sessions', 'audio'], 'readwrite');
+    await Promise.all([
+      ...ids.flatMap((id) => [
+        tx.objectStore('sessions').delete(id),
+        tx.objectStore('audio').delete(id),
+      ]),
+      tx.done,
+    ]);
   }
 
   private open(): Promise<IDBPDatabase<Archive1>> {

@@ -1,4 +1,5 @@
 import { AloudError } from '../errors';
+import { WorkerChannel } from '../worker-channel';
 import type {
   AsrDevice,
   AsrEvent,
@@ -23,40 +24,31 @@ export type TranscribeResult = {
   readonly elapsedMs: number;
 };
 
-type Pending = {
-  resolve: (event: AsrEvent) => void;
-  reject: (error: Error) => void;
-};
-
 /** Main-thread half of the worker protocol. Takes a Worker rather than making one. */
 export class AsrClient {
-  private nextId = 1;
-  private readonly pending = new Map<number, Pending>();
-
-  private readonly worker: Worker;
-  private readonly options: AsrClientOptions;
+  private readonly channel: WorkerChannel<AsrRequest, AsrEvent>;
 
   constructor(worker: Worker, options: AsrClientOptions = {}) {
-    this.worker = worker;
-    this.options = options;
-
-    worker.onmessage = (event: MessageEvent<AsrEvent>) => {
-      this.receive(event.data);
-    };
-    worker.onerror = () => {
-      this.failAll(new AloudError('inference-failed', 'the inference worker died'));
-    };
+    this.channel = new WorkerChannel(worker, 'inference-failed', (event) => {
+      if (event.kind === 'progress') options.onProgress?.(event.progress);
+    });
   }
 
-  async load(spec: AsrModelSpec): Promise<LoadedModel> {
-    const event = await this.send({ kind: 'load', id: this.nextId++, spec });
+  /** `runtimeUrl` is where the page serves onnxruntime's wasm; left out, it comes from jsDelivr. */
+  async load(spec: AsrModelSpec, runtimeUrl?: string): Promise<LoadedModel> {
+    const event = await this.channel.request((id) => ({
+      kind: 'load',
+      id,
+      spec,
+      ...(runtimeUrl ? { runtimeUrl } : {}),
+    }));
     if (event.kind !== 'loaded') {
       throw new AloudError('model-load-failed', `worker answered load with ${event.kind}`);
     }
     return { device: event.device, elapsedMs: event.elapsedMs };
   }
 
-  /** The samples are transferred, not copied. The array is empty once this returns. */
+  /** The samples are transferred, not copied: the array is empty as soon as this is called. */
   async transcribe(
     samples: Float32Array,
     options: TranscribeOptions = {},
@@ -64,8 +56,8 @@ export class AsrClient {
     const buffer = samples.buffer;
     const transfer = buffer instanceof ArrayBuffer ? [buffer] : [];
 
-    const event = await this.send(
-      { kind: 'transcribe', id: this.nextId++, samples, options },
+    const event = await this.channel.request(
+      (id) => ({ kind: 'transcribe', id, samples, options }),
       transfer,
     );
     if (event.kind !== 'transcript') {
@@ -76,7 +68,7 @@ export class AsrClient {
 
   /** Unit vectors, one per text, for the extractive summary. */
   async embed(texts: readonly string[]): Promise<Float32Array[]> {
-    const event = await this.send({ kind: 'embed', id: this.nextId++, texts });
+    const event = await this.channel.request((id) => ({ kind: 'embed', id, texts }));
     if (event.kind !== 'vectors') {
       throw new AloudError('inference-failed', `worker answered embed with ${event.kind}`);
     }
@@ -90,38 +82,6 @@ export class AsrClient {
   }
 
   dispose(): void {
-    this.failAll(new AloudError('inference-failed', 'the client was disposed'));
-    this.worker.terminate();
-  }
-
-  private send(request: AsrRequest, transfer: Transferable[] = []): Promise<AsrEvent> {
-    return new Promise((resolve, reject) => {
-      this.pending.set(request.id, { resolve, reject });
-      this.worker.postMessage(request, transfer);
-    });
-  }
-
-  private receive(event: AsrEvent): void {
-    if (event.kind === 'progress') {
-      this.options.onProgress?.(event.progress);
-      return;
-    }
-
-    const pending = this.pending.get(event.id);
-    if (!pending) return;
-    this.pending.delete(event.id);
-
-    if (event.kind === 'failed') {
-      pending.reject(new AloudError(event.code, event.message));
-    } else {
-      pending.resolve(event);
-    }
-  }
-
-  private failAll(error: Error): void {
-    for (const pending of this.pending.values()) {
-      pending.reject(error);
-    }
-    this.pending.clear();
+    this.channel.dispose('inference-failed');
   }
 }

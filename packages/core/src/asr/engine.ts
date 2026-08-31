@@ -1,4 +1,4 @@
-import { pipeline } from '@huggingface/transformers';
+import { env, pipeline } from '@huggingface/transformers';
 import { AloudError } from '../errors';
 import { retry } from '../retry';
 import type {
@@ -36,14 +36,21 @@ export class WhisperEngine {
   async load(
     spec: AsrModelSpec,
     onProgress: (progress: ModelProgress) => void,
+    runtimeUrl?: string,
   ): Promise<AsrDevice> {
     const device = spec.device === 'auto' ? await detectDevice() : spec.device;
+    if (runtimeUrl) {
+      serveRuntimeFrom(runtimeUrl);
+    }
 
     try {
       this.transcriber = await retry(() =>
         pipeline('automatic-speech-recognition', spec.model, {
           device,
           dtype: spec.dtype ?? DEFAULT_DTYPE,
+          // The files come from this commit. transformers.js 4.2 still asks `main` for their
+          // sizes first, so `resolve/main` in the network panel is the progress bar, not the model.
+          ...(spec.revision ? { revision: spec.revision } : {}),
           progress_callback: (info) => {
             if (info.status === 'progress') {
               onProgress({ file: info.file, loaded: info.loaded, total: info.total });
@@ -88,6 +95,25 @@ export class WhisperEngine {
       throw new AloudError('inference-failed', 'the model stopped mid-transcription', { cause });
     }
   }
+}
+
+/**
+ * transformers.js points onnxruntime at jsDelivr when it is imported. Keep the build it chose,
+ * which is a different one on Safari, and change only where the files come from.
+ */
+function serveRuntimeFrom(base: string): void {
+  const wasm = env.backends.onnx.wasm;
+  const paths = wasm?.wasmPaths;
+  if (!wasm || !paths || typeof paths === 'string' || paths instanceof URL) return;
+
+  wasm.wasmPaths = {
+    ...(paths.mjs ? { mjs: new URL(fileName(paths.mjs), base).href } : {}),
+    ...(paths.wasm ? { wasm: new URL(fileName(paths.wasm), base).href } : {}),
+  };
+}
+
+function fileName(path: URL | string): string {
+  return String(path).split('/').pop() ?? '';
 }
 
 async function detectDevice(): Promise<AsrDevice> {

@@ -24,7 +24,6 @@ export class Recorder {
       this.data = grown;
     }
 
-    // Indices are bounded by the length above, so the reads cannot miss.
     for (let i = 0; i < samples.length; i++) {
       const clamped = Math.max(-1, Math.min(1, samples[i]!));
       this.data[this.length + i] = Math.round(clamped * 32767);
@@ -36,9 +35,5 @@ export class Recorder {
     return new Blob([encodeWav(this.data.subarray(0, this.length), this.sampleRate)], {
       type: 'audio/wav',
     });
-  }
-
-  reset(): void {
-    this.length = 0;
   }
 }

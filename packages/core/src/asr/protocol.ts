@@ -8,6 +8,8 @@ export type AsrDtype = AsrPrecision | Readonly<Record<string, AsrPrecision>>;
 export type AsrModelSpec = {
   /** Hugging Face repo, for example `onnx-community/whisper-base`. */
   readonly model: string;
+  /** A commit in that repo. Left out, whatever `main` is today. */
+  readonly revision?: string;
   readonly device: AsrDevice | 'auto';
   /** Per-module when the encoder and the decoder want different precision. */
   readonly dtype?: AsrDtype;
@@ -38,7 +40,13 @@ export type ModelProgress = {
 };
 
 export type AsrRequest =
-  | { readonly kind: 'load'; readonly id: number; readonly spec: AsrModelSpec }
+  | {
+      readonly kind: 'load';
+      readonly id: number;
+      readonly spec: AsrModelSpec;
+      /** Where the page serves onnxruntime's wasm. Left out, it comes from jsDelivr. */
+      readonly runtimeUrl?: string;
+    }
   /**
    * Sentence embeddings for the summary. They live in this worker rather than a third one
    * because transformers.js is already resident here, and they only ever run when Whisper

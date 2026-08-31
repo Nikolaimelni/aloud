@@ -1,4 +1,5 @@
 import { AloudError } from '../errors';
+import { WorkerChannel } from '../worker-channel';
 import { SILERO_VAD_URL, type VadEvent, type VadRequest, type VadTuning } from './protocol';
 
 export type Verdict = {
@@ -6,38 +7,45 @@ export type Verdict = {
   readonly probability: number;
 };
 
-type Pending = {
-  resolve: (event: VadEvent) => void;
-  reject: (error: Error) => void;
+export type VadLoadOptions = {
+  readonly tuning?: VadTuning;
+  readonly url?: string;
+  /** Where the page serves onnxruntime's wasm. Left out, it comes from jsDelivr. */
+  readonly runtimeUrl?: string;
 };
 
 export class VadClient {
-  private nextId = 1;
-  private readonly pending = new Map<number, Pending>();
-
-  private readonly worker: Worker;
+  private readonly channel: WorkerChannel<VadRequest, VadEvent>;
 
   constructor(worker: Worker) {
-    this.worker = worker;
-
-    worker.onmessage = (event: MessageEvent<VadEvent>) => {
-      this.settle(event.data);
-    };
-    worker.onerror = () => {
-      this.failAll(new AloudError('vad-failed', 'the detector worker died'));
-    };
+    this.channel = new WorkerChannel(worker, 'vad-failed');
   }
 
-  async load(tuning: VadTuning = {}, url: string = SILERO_VAD_URL): Promise<number> {
-    const event = await this.send({ kind: 'load', id: this.nextId++, url, tuning });
+  async load(options: VadLoadOptions = {}): Promise<number> {
+    const { tuning = {}, url = SILERO_VAD_URL, runtimeUrl } = options;
+    const event = await this.channel.request((id) => ({
+      kind: 'load',
+      id,
+      url,
+      tuning,
+      ...(runtimeUrl ? { runtimeUrl } : {}),
+    }));
     if (event.kind !== 'loaded') {
       throw new AloudError('vad-load-failed', `worker answered load with ${event.kind}`);
     }
     return event.elapsedMs;
   }
 
+  /** Forget the previous stream: its LSTM state, its gate, the samples it had left over. */
+  async reset(): Promise<void> {
+    const event = await this.channel.request((id) => ({ kind: 'reset', id }));
+    if (event.kind !== 'reset') {
+      throw new AloudError('vad-failed', `worker answered reset with ${event.kind}`);
+    }
+  }
+
   async classify(samples: Float32Array): Promise<Verdict> {
-    const event = await this.send({ kind: 'classify', id: this.nextId++, samples });
+    const event = await this.channel.request((id) => ({ kind: 'classify', id, samples }));
     if (event.kind !== 'verdict') {
       throw new AloudError('vad-failed', `worker answered classify with ${event.kind}`);
     }
@@ -45,33 +53,6 @@ export class VadClient {
   }
 
   dispose(): void {
-    this.failAll(new AloudError('vad-failed', 'the client was disposed'));
-    this.worker.terminate();
-  }
-
-  private send(request: VadRequest): Promise<VadEvent> {
-    return new Promise((resolve, reject) => {
-      this.pending.set(request.id, { resolve, reject });
-      this.worker.postMessage(request);
-    });
-  }
-
-  private settle(event: VadEvent): void {
-    const pending = this.pending.get(event.id);
-    if (!pending) return;
-    this.pending.delete(event.id);
-
-    if (event.kind === 'failed') {
-      pending.reject(new AloudError('vad-failed', event.message));
-    } else {
-      pending.resolve(event);
-    }
-  }
-
-  private failAll(error: Error): void {
-    for (const pending of this.pending.values()) {
-      pending.reject(error);
-    }
-    this.pending.clear();
+    this.channel.dispose('vad-failed');
   }
 }

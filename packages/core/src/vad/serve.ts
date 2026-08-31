@@ -1,4 +1,4 @@
-import { AloudError } from '../errors';
+import { AloudError, unwrap } from '../errors';
 import { SpeechGate } from './gate';
 import { SileroVad, VAD_BLOCK, VAD_BLOCK_MS } from './silero';
 import type { VadEvent, VadRequest } from './protocol';
@@ -18,9 +18,17 @@ export function createVadHandler(
     try {
       if (request.kind === 'load') {
         const started = performance.now();
-        await detector.load(request.url);
+        await detector.load(request.url, request.runtimeUrl);
         gate = new SpeechGate(request.tuning);
         post({ kind: 'loaded', id: request.id, elapsedMs: performance.now() - started });
+        return;
+      }
+
+      if (request.kind === 'reset') {
+        detector.reset();
+        gate.reset();
+        leftover = new Float32Array(0);
+        post({ kind: 'reset', id: request.id });
         return;
       }
 
@@ -49,7 +57,8 @@ export function createVadHandler(
       post({
         kind: 'failed',
         id: request.id,
-        message: error instanceof AloudError ? error.message : String(error),
+        code: error instanceof AloudError ? error.code : 'vad-failed',
+        message: unwrap(error),
       });
     }
   };

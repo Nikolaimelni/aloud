@@ -1,4 +1,4 @@
-import { AloudError } from '../errors';
+import { AloudError, unwrap } from '../errors';
 import { Embedder } from '../summary/embed';
 import { WhisperEngine } from './engine';
 import type { AsrEvent, AsrRequest } from './protocol';
@@ -18,8 +18,10 @@ export function createAsrHandler(
 
     try {
       if (request.kind === 'load') {
-        const device = await engine.load(request.spec, (progress) =>
-          post({ kind: 'progress', progress }),
+        const device = await engine.load(
+          request.spec,
+          (progress) => post({ kind: 'progress', progress }),
+          request.runtimeUrl,
         );
         post({ kind: 'loaded', id: request.id, device, elapsedMs: performance.now() - started });
         return;
@@ -53,17 +55,4 @@ export function createAsrHandler(
       });
     }
   };
-}
-
-/** Worker stack traces never reach the page, so the cause chain has to travel as text. */
-function unwrap(error: unknown): string {
-  const parts: string[] = [];
-  let current: unknown = error;
-
-  while (current instanceof Error && parts.length < 4) {
-    parts.push(current.message);
-    current = current.cause;
-  }
-
-  return parts.length > 0 ? parts.join(': ') : String(error);
 }

@@ -20,7 +20,7 @@ const ROLLOFF = 0.94;
  * zeros introduced by upsampling are never actually multiplied.
  *
  * Devices hand us 44.1 or 48 kHz and the model wants 16, and dropping every third
- * sample would fold everything above 8 kHz back into the speech band -- sibilants land
+ * sample would fold everything above 8 kHz back into the speech band. Sibilants land
  * on top of vowels and the transcript quietly gets worse in a way no one can point at.
  */
 export class Resampler {
@@ -104,12 +104,6 @@ export class Resampler {
     this.produced += count;
 
     return out;
-  }
-
-  reset(): void {
-    this.history.fill(0);
-    this.consumed = 0;
-    this.produced = 0;
   }
 }
 

@@ -1,9 +1,9 @@
 /**
  * Whisper writes "Mr." where LibriSpeech references write "MISTER", and "50" where a Russian
- * reference writes "пятьдесят". Both were counted as errors until this existed, and on a
- * fifteen word clip one of them is seven percent. A real evaluation uses the full Whisper
- * text normaliser; this is the short version, and the numbers it produces are only comparable
- * against each other.
+ * reference writes "пятьдесят". Both were counted as errors until this existed, and on the
+ * seventeen word LibriSpeech clip one of them is six percent. A real evaluation uses the full
+ * Whisper text normaliser; this is the short version, and the numbers it produces are only
+ * comparable against each other.
  */
 const SPELLED_OUT: Record<string, string> = {
   mr: 'mister',

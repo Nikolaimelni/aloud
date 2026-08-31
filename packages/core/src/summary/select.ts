@@ -77,7 +77,6 @@ function centroid(vectors: readonly Float32Array[]): Float32Array {
   const first = vectors[0];
   if (!first) return new Float32Array(0);
 
-  // Bounds come from the array lengths above, so the reads cannot miss.
   const sum = new Float32Array(first.length);
   for (const vector of vectors) {
     for (let i = 0; i < sum.length; i++) {

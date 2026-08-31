@@ -1,8 +1,8 @@
 import type { AudioFrame, AudioSource } from './source';
 
 /**
- * Wraps a source so something else can watch the frames going past: a level meter, a
- * recorder, a debug log. The pipeline downstream cannot tell the difference.
+ * Wraps a source so the level meter and the recorder can watch the frames going past. The
+ * pipeline downstream cannot tell the difference.
  */
 export function tapFrames(source: AudioSource, watch: (frame: AudioFrame) => void): AudioSource {
   return {
