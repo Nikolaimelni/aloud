@@ -121,10 +121,13 @@ setting.
 The audio never goes anywhere. There is no server to send it to: the whole pipeline is four
 threads in your tab.
 
-Two things are fetched over the network, both on the first run and both cached afterwards.
-The model weights come from huggingface.co, and onnxruntime's WebAssembly comes from
-jsDelivr. After that it opens with the network off. Nothing is sent the other way: no
-analytics, no error reporting, no account, no request that carries a word of what you said.
+The model weights are the one thing fetched over the network: from huggingface.co, on the
+first run, pinned to a commit and cached afterwards. onnxruntime's WebAssembly ships inside
+the build rather than coming from a CDN, so no code runs in the tab that did not come from
+this repository's lockfile. After that it opens with the network off. Nothing is sent the
+other way: no analytics, no error reporting, no account, no request that carries a word of
+what you said. The Content-Security-Policy holds the page to that, since it may only connect
+to itself and to Hugging Face.
 
 Recordings and transcripts are kept in IndexedDB on the machine you used, the last ten
 sessions, and "Delete all" means it. Clearing the site data clears them too, along with the
@@ -186,7 +189,7 @@ first run is slow and the rest are not.
 runs on a server and on images, and none of them is reachable from a browser tab. Leave them
 unbuilt.
 
-The one thing a host has to get right is two headers:
+The one thing a host has to get right is the headers, and two of them carry the speed:
 
 ```
 Cross-Origin-Opener-Policy: same-origin
@@ -194,14 +197,20 @@ Cross-Origin-Embedder-Policy: credentialless
 ```
 
 They are what lets onnxruntime start its thread pool, which is worth roughly a factor of two
-on WASM, and the `credentialless` variant is what still allows the weights to come from a CDN.
-`packages/app/public/_headers` asks Cloudflare Pages for them and ships in the build output.
-Anywhere else, set them yourself; without them the app works and is half the speed.
+on WASM, and the `credentialless` variant is what still allows the weights to come from
+Hugging Face. `packages/app/public/_headers` asks Cloudflare Pages for them and ships in the
+build output, together with the CSP. That policy carries `'unsafe-eval'`, because onnxruntime's
+asyncify and WebGPU builds make functions with `new Function`; `connect-src` is the part doing
+the work. The offline test serves the build with the same file. Anywhere else, set them
+yourself; without the first two the app works and is half the speed.
 
 ```
 pnpm build
 pnpm dlx wrangler pages deploy packages/app/dist/app/browser --project-name aloud
 ```
+
+The build copies two onnxruntime builds into `ort/`, about 36 MB. The larger file is 23.6 MB,
+which fits under the 25 MB Pages allows per file, but not by much.
 
 ## Layout
 

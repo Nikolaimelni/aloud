@@ -1,55 +1,44 @@
-import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { preview } from 'vite';
 
-const ROOT = '../app/dist/app/browser';
+const ROOT = fileURLToPath(new URL('../app/dist/app/browser', import.meta.url));
 const PORT = 4400;
 
-const TYPES: Record<string, string> = {
-  '.html': 'text/html',
-  '.js': 'text/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
-  '.ico': 'image/x-icon',
-  '.wasm': 'application/wasm',
-};
-
 /**
- * Serves the production build with the two headers `public/_headers` asks Pages to send, so
- * the thing under test is the thing that ships.
+ * The headers Cloudflare Pages sends, read out of the `_headers` that ships with the build, so
+ * the thing under test is the thing that ships, CSP included. Only the `/*` block is used.
  */
-function serve(): Promise<Server> {
-  const server = createServer((request, response) => {
-    const url = new URL(request.url ?? '/', 'http://localhost');
-    const path = url.pathname === '/' ? '/index.html' : url.pathname;
-    const file = join(ROOT, normalize(path).replace(/^(\.\.[/\\])+/, ''));
-
-    response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    response.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
-
-    readFile(file).then(
-      (body) => {
-        response.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
-        response.end(body);
-      },
-      () => {
-        response.statusCode = 404;
-        response.end('no');
-      },
-    );
-  });
-
-  return new Promise((resolve) => server.listen(PORT, () => resolve(server)));
+async function shippedHeaders(): Promise<Record<string, string>> {
+  const text = await readFile(`${ROOT}/_headers`, 'utf8');
+  const headers: Record<string, string> = {};
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s+([\w-]+):\s*(.+)$/.exec(line);
+    if (match?.[1] && match[2]) headers[match[1]] = match[2];
+  }
+  return headers;
 }
 
 test('the app opens with the network off', async ({ browser }) => {
-  const server = await serve();
+  const server = await preview({
+    configFile: false,
+    logLevel: 'silent',
+    root: ROOT,
+    build: { outDir: '.' },
+    preview: { port: PORT, strictPort: true, headers: await shippedHeaders() },
+  });
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  const blocked: string[] = [];
+  page.on('console', (message) => {
+    if (message.text().includes('Content Security Policy')) blocked.push(message.text());
+  });
+
   try {
-    await page.goto(`http://localhost:${PORT}/`);
+    const response = await page.goto(`http://localhost:${PORT}/`);
+    expect(response?.headers()['content-security-policy']).toContain("connect-src 'self'");
     await expect(page.locator('aloud-session')).toBeVisible();
 
     await page.evaluate(() => navigator.serviceWorker.ready);
@@ -60,10 +49,12 @@ test('the app opens with the network off', async ({ browser }) => {
       .poll(
         () =>
           page.evaluate(async () => {
-            const manifest: { assetGroups?: { urls: string[] }[] } = await (
+            const manifest: { assetGroups?: { installMode: string; urls: string[] }[] } = await (
               await fetch('/ngsw.json')
             ).json();
-            const wanted = (manifest.assetGroups ?? []).flatMap((group) => group.urls);
+            const wanted = (manifest.assetGroups ?? [])
+              .filter((group) => group.installMode === 'prefetch')
+              .flatMap((group) => group.urls);
 
             for (const name of await caches.keys()) {
               const cache = await caches.open(name);
@@ -82,8 +73,9 @@ test('the app opens with the network off', async ({ browser }) => {
     // Bootstrapping from cache is not instant, and the default expect timeout is five seconds.
     await expect(page.locator('h1')).toHaveText('Aloud', { timeout: 30_000 });
     await expect(page.locator('.source')).toHaveCount(3);
+    expect(blocked, blocked.join('\n')).toEqual([]);
   } finally {
     await context.close();
-    server.close();
+    await server.close();
   }
 });

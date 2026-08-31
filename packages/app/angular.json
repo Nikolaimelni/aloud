@@ -27,6 +27,16 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "ort-wasm-simd-threaded.{mjs,wasm}",
+                "input": "node_modules/onnxruntime-web/dist",
+                "output": "ort"
+              },
+              {
+                "glob": "ort-wasm-simd-threaded.asyncify.{mjs,wasm}",
+                "input": "node_modules/onnxruntime-web/dist",
+                "output": "ort"
               }
             ],
             "styles": ["src/styles.scss"],
@@ -48,11 +58,29 @@
                 }
               ],
               "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              },
               "assets": [
                 {
                   "glob": "**/*",
                   "input": "public",
                   "ignore": ["fixtures/**"]
+                },
+                {
+                  "glob": "ort-wasm-simd-threaded.{mjs,wasm}",
+                  "input": "node_modules/onnxruntime-web/dist",
+                  "output": "ort"
+                },
+                {
+                  "glob": "ort-wasm-simd-threaded.asyncify.{mjs,wasm}",
+                  "input": "node_modules/onnxruntime-web/dist",
+                  "output": "ort"
                 }
               ]
             },
@@ -84,9 +112,6 @@
             }
           },
           "defaultConfiguration": "development"
-        },
-        "test": {
-          "builder": "@angular/build:unit-test"
         }
       }
     }

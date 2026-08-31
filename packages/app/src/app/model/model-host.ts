@@ -1,7 +1,8 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { AsrClient } from '@aloud/core/asr/worker-client';
-import { VadClient } from '@aloud/core/vad/worker-client';
 import type { AsrDevice, ModelProgress } from '@aloud/core/asr/protocol';
+import type { AsrClient } from '@aloud/core/asr/worker-client';
+import { loadEngines } from '@aloud/core/engines';
+import type { VadClient } from '@aloud/core/vad/worker-client';
 import { ModelSettings } from './model-settings';
 
 export type Loaded = {
@@ -9,14 +10,20 @@ export type Loaded = {
   readonly vad: VadClient;
 };
 
+/**
+ * onnxruntime's wasm, copied out of node_modules by the build (see angular.json) so no code
+ * runs from a CDN at run time. Absolute, because the workers resolve it, not the page.
+ */
+const RUNTIME_URL = new URL('ort/', document.baseURI).href;
+
 /** Owns the two workers so a session does not load the same weights twice. */
 @Injectable({ providedIn: 'root' })
 export class ModelHost {
   private readonly settings = inject(ModelSettings);
   private readonly downloads = new Map<string, ModelProgress>();
 
-  private asr: AsrClient | null = null;
-  private vad: VadClient | null = null;
+  private loaded: Loaded | null = null;
+  private pending: { readonly key: string; readonly loaded: Promise<Loaded> } | null = null;
   private readonly loadedKey = signal<string | null>(null);
 
   readonly loading = signal(false);
@@ -27,38 +34,62 @@ export class ModelHost {
   /** False until the weights for the current settings are in the browser. */
   readonly hasWeights = computed(() => this.loadedKey() === this.settings.key());
 
+  /** Whatever is loaded now, without swapping in the model the settings have moved on to. */
+  current(): Loaded | null {
+    return this.loaded;
+  }
+
+  /**
+   * The workers for the current settings, one load at a time. A second caller for the same
+   * model shares the download; one for a different model waits for it, then replaces it.
+   */
   async ready(): Promise<Loaded> {
     const key = this.settings.key();
-    if (this.asr && this.vad && this.loadedKey() === key) {
-      return { asr: this.asr, vad: this.vad };
+    if (this.loaded && this.loadedKey() === key) {
+      return this.loaded;
     }
 
-    this.asr?.dispose();
-    this.vad?.dispose();
-    this.asr = null;
-    this.vad = null;
+    const pending = this.pending;
+    if (pending) {
+      if (pending.key === key) return pending.loaded;
+      await pending.loaded.catch(() => undefined);
+      return this.ready();
+    }
+
+    const loaded = this.load(key);
+    this.pending = { key, loaded };
+    try {
+      return await loaded;
+    } finally {
+      this.pending = null;
+    }
+  }
+
+  private async load(key: string): Promise<Loaded> {
+    this.loaded?.asr.dispose();
+    this.loaded?.vad.dispose();
+    this.loaded = null;
     this.loadedKey.set(null);
     this.downloads.clear();
     this.download.set(null);
     this.loading.set(true);
 
     try {
-      const asr = new AsrClient(
-        new Worker(new URL('../asr/asr.worker', import.meta.url), { type: 'module' }),
-        { onProgress: (progress) => this.track(progress) },
-      );
-      const vad = new VadClient(
-        new Worker(new URL('../vad/vad.worker', import.meta.url), { type: 'module' }),
-      );
+      const engines = await loadEngines({
+        asrWorker: () =>
+          new Worker(new URL('../asr/asr.worker', import.meta.url), { type: 'module' }),
+        vadWorker: () =>
+          new Worker(new URL('../vad/vad.worker', import.meta.url), { type: 'module' }),
+        spec: this.settings.spec(),
+        runtimeUrl: RUNTIME_URL,
+        onProgress: (progress) => this.track(progress),
+      });
 
-      const [model] = await Promise.all([asr.load(this.settings.spec()), vad.load()]);
-
-      this.asr = asr;
-      this.vad = vad;
+      this.loaded = { asr: engines.asr, vad: engines.vad };
       this.loadedKey.set(key);
-      this.device.set(model.device);
-      this.loadMs.set(model.elapsedMs);
-      return { asr, vad };
+      this.device.set(engines.device);
+      this.loadMs.set(engines.elapsedMs);
+      return this.loaded;
     } finally {
       this.loading.set(false);
       this.download.set(null);

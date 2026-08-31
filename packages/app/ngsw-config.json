@@ -8,6 +8,14 @@
       "resources": {
         "files": ["/index.html", "/favicon.ico", "/*.css", "/*.js", "/worklets/**"]
       }
+    },
+    {
+      "name": "runtime",
+      "installMode": "lazy",
+      "updateMode": "lazy",
+      "resources": {
+        "files": ["/ort/**"]
+      }
     }
   ]
 }
