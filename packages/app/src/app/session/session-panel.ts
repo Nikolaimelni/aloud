@@ -7,10 +7,16 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import {
+  isWhisperSize,
+  WHISPER_MODELS,
+  WHISPER_SIZES,
+  type WhisperSize,
+} from '@aloud/core/asr/models';
 import { clock } from '@aloud/core/stream/transcript';
 import { EMBEDDING_SIZE_MB } from '@aloud/core/summary/model';
 import { LevelMeter } from '../capture/level-meter';
-import { MODEL_SIZE_MB, MODELS, ModelSettings, PRECISIONS } from '../model/model-settings';
+import { ModelSettings, PRECISIONS } from '../model/model-settings';
 import { ModelHost } from '../model/model-host';
 import { SessionStore, type SourceKind } from './session-store';
 import { TranscriptView } from './transcript-view';
@@ -53,7 +59,7 @@ export class SessionPanel {
   protected readonly settings = inject(ModelSettings);
 
   protected readonly sources = SOURCES;
-  protected readonly models = MODELS;
+  protected readonly sizes = WHISPER_SIZES;
   protected readonly precisions = PRECISIONS;
   protected readonly playhead = signal(0);
 
@@ -63,10 +69,14 @@ export class SessionPanel {
     () => SOURCES.find((source) => source.kind === this.store.source())?.about ?? '',
   );
 
-  protected readonly sizeMb = computed(() => MODEL_SIZE_MB[this.settings.model()] ?? 150);
+  protected readonly sizeMb = computed(() => this.sizeOf(this.settings.model()));
 
-  protected sizeOf(model: string): number {
-    return MODEL_SIZE_MB[model] ?? 150;
+  protected readonly startLabel = computed(() =>
+    this.host.hasWeights() ? 'Start listening' : `Download ${this.sizeMb()} MB and start`,
+  );
+
+  protected sizeOf(size: WhisperSize): number {
+    return WHISPER_MODELS[size].sizeMb;
   }
 
   protected readonly placeholder = computed(() =>
@@ -120,7 +130,8 @@ export class SessionPanel {
   }
 
   protected setModel(event: Event): void {
-    this.settings.model.set(value(event));
+    const chosen = value(event);
+    if (isWhisperSize(chosen)) this.settings.model.set(chosen);
   }
 
   protected setLanguage(event: Event): void {
@@ -151,10 +162,6 @@ export class SessionPanel {
 
   protected stamp(at: number): string {
     return clock(at);
-  }
-
-  protected shortName(model: string): string {
-    return (model.split('/').pop() ?? model).replace('_timestamped', '');
   }
 
   protected megabytes(bytes: number): string {

@@ -78,6 +78,11 @@ The streaming loop, measured on a minute of English at real speed:
 | confirmed lag, p50 | 2.7 s | 4.4 s | 10.0 s |
 | confirmed lag, p90 | 7.3 s | 8.1 s | 15.0 s |
 
+The streaming costs here and in the ru-03 table are from before a fix to the end of a stream:
+the pipeline counted its last pass twice, and when a pass was still running at the end it ran
+the final window twice as well. The one-pass numbers are unaffected. The next `pnpm bench`
+will bring the streaming ones down, most on a clip as short as ru-03.
+
 One more caveat, because it has bitten this project twice. Word error rate is only as good as
 its text normaliser. Before this one spelled out "Mr." and turned "пятьдесят" into "50",
 LibriSpeech scored 5.9% and the first Russian clip 27%, and every one of those errors was the

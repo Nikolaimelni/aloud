@@ -32,14 +32,12 @@
       />
       faster than real time
     </label>
-  } @else if (store.listening()) {
+  }
+
+  @if (store.listening()) {
     <button type="button" class="primary" (click)="store.stop()">Stop</button>
-  } @else if (host.hasWeights()) {
-    <button type="button" class="primary" (click)="store.start()">Start listening</button>
-  } @else {
-    <button type="button" class="primary" (click)="store.start()">
-      Download {{ sizeMb() }} MB and start
-    </button>
+  } @else if (store.source() !== 'file') {
+    <button type="button" class="primary" (click)="store.start()">{{ startLabel() }}</button>
   }
 
   <label class="check">
@@ -63,8 +61,8 @@
       <progress [value]="progress.loaded" [max]="progress.total"></progress>
     } @else {
       <p>
-        Starting the model. {{ shortName(settings.model()) }} is about {{ sizeMb() }} MB the first
-        time and cached afterwards.
+        Starting the model. whisper-{{ settings.model() }} is about {{ sizeMb() }} MB the first time
+        and cached afterwards.
       </p>
     }
     <p class="warn">On a phone plan, wait for wi-fi.</p>
@@ -187,8 +185,8 @@
     <label>
       Model
       <select [value]="settings.model()" [disabled]="store.listening()" (change)="setModel($event)">
-        @for (model of models; track model) {
-          <option [value]="model">{{ shortName(model) }} — {{ sizeOf(model) }} MB</option>
+        @for (size of sizes; track size) {
+          <option [value]="size">whisper-{{ size }} ({{ sizeOf(size) }} MB)</option>
         }
       </select>
     </label>

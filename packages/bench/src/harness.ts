@@ -1,14 +1,19 @@
-import { AsrClient } from '@aloud/core/asr/worker-client';
+import { WHISPER_MODELS, type WhisperSize } from '@aloud/core/asr/models';
+import type { AsrDevice, AsrPrecision } from '@aloud/core/asr/protocol';
+import type { AsrClient } from '@aloud/core/asr/worker-client';
+import { TARGET_SAMPLE_RATE } from '@aloud/core/audio/source';
 import { WavSource } from '@aloud/core/audio/wav-source';
+import { loadEngines } from '@aloud/core/engines';
+import { unwrap } from '@aloud/core/errors';
+import { retry } from '@aloud/core/retry';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
 import { textOf } from '@aloud/core/stream/stabilize';
-import { VadClient } from '@aloud/core/vad/worker-client';
-import type { AsrDevice, AsrPrecision } from '@aloud/core/asr/protocol';
+import type { VadClient } from '@aloud/core/vad/worker-client';
 
 export type RunConfig = {
   readonly url: string;
-  readonly model: string;
-  readonly device: AsrDevice | 'auto';
+  readonly model: WhisperSize;
+  readonly device: AsrDevice;
   readonly dtype: AsrPrecision;
   readonly stepSeconds: number;
   readonly language?: string;
@@ -43,20 +48,16 @@ async function engines(config: RunConfig) {
 
   loaded?.asr.dispose();
   loaded?.vad.dispose();
+  loaded = null;
 
-  const asr = new AsrClient(
-    new Worker(new URL('./asr.worker.ts', import.meta.url), { type: 'module' }),
-  );
-  const vad = new VadClient(
-    new Worker(new URL('./vad.worker.ts', import.meta.url), { type: 'module' }),
-  );
+  const { id, revision } = WHISPER_MODELS[config.model];
+  const engines = await loadEngines({
+    asrWorker: () => new Worker(new URL('./asr.worker.ts', import.meta.url), { type: 'module' }),
+    vadWorker: () => new Worker(new URL('./vad.worker.ts', import.meta.url), { type: 'module' }),
+    spec: { model: id, revision, device: config.device, dtype: config.dtype },
+  });
 
-  const [model] = await Promise.all([
-    asr.load({ model: config.model, device: config.device, dtype: config.dtype }),
-    vad.load(),
-  ]);
-
-  loaded = { key, asr, vad, device: model.device, loadMs: model.elapsedMs };
+  loaded = { key, ...engines, loadMs: engines.elapsedMs };
   return loaded;
 }
 
@@ -76,7 +77,7 @@ async function run(config: RunConfig): Promise<RunResult> {
     return {
       text: result.transcript.text,
       device,
-      audioSeconds: samples.length / 16_000,
+      audioSeconds: samples.length / TARGET_SAMPLE_RATE,
       computeMs: result.elapsedMs,
       wallMs: performance.now() - started,
       passes: 1,
@@ -98,7 +99,7 @@ async function run(config: RunConfig): Promise<RunResult> {
       ...(config.language ? { language: config.language } : {}),
     },
     onUpdate: (update) => {
-      computeMs += update.lastPassMs;
+      computeMs = update.computeMs;
       passes = update.passes;
       heard = update.heardSeconds;
       text = textOf(update.confirmed);
@@ -124,21 +125,19 @@ async function run(config: RunConfig): Promise<RunResult> {
 }
 
 /** The CDN drops a connection now and then, and losing a row of the table to that is silly. */
-async function fetchFixture(url: string, attempts = 4): Promise<ArrayBuffer> {
-  let last: unknown = null;
-
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`fixture came back ${response.status}`);
-      return await response.arrayBuffer();
-    } catch (cause) {
-      last = cause;
-      await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
-    }
+async function fetchFixture(url: string): Promise<ArrayBuffer> {
+  try {
+    return await retry(
+      async () => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`fixture came back ${response.status}`);
+        return response.arrayBuffer();
+      },
+      { attempts: 4, backoffMs: 500 },
+    );
+  } catch (cause) {
+    throw new Error(`could not fetch ${url}: ${unwrap(cause)}`, { cause });
   }
-
-  throw new Error(`could not fetch ${url}: ${last instanceof Error ? last.message : String(last)}`);
 }
 
 async function collect(source: WavSource): Promise<Float32Array> {

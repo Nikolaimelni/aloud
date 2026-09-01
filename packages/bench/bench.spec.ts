@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { env } from './env';
 import { loadFixtures } from './src/fixtures';
 import { wordErrorRate } from './src/wer';
 import type { RunConfig, RunResult } from './src/harness';
@@ -25,26 +26,19 @@ type Row = {
   error: string | null;
 };
 
-const MODELS = (process.env['BENCH_MODELS'] ?? 'tiny,base')
-  .split(',')
-  .map((name) => `onnx-community/whisper-${name.trim()}_timestamped`);
-
-const DEVICES = (process.env['BENCH_DEVICES'] ?? 'wasm,webgpu').split(',').map((d) => d.trim());
-const STEP = Number(process.env['BENCH_STEP'] ?? 1.5);
-
 /**
  * Streaming runs play at real speed, so they cost what they are worth in seconds and only a
  * couple of fixtures get one. The minute of English is for the latency percentiles; the short
  * Russian clip is there because whisper-tiny runs away into a decoder loop on it, and the
  * difference between the two modes is the value of the stabiliser's loop trimming.
  */
-const STREAM_FIXTURES = new Set((process.env['BENCH_STREAM'] ?? 'ted-60s,ru-03').split(','));
+const STREAM_FIXTURES = new Set(env.BENCH_STREAM);
 
 /**
  * A configuration that cannot finish should cost one row, not the afternoon. Learned the hard
  * way: a model that would not load turned a five minute sweep into three and a half hours.
  */
-const RUN_TIMEOUT_MS = Number(process.env['BENCH_RUN_TIMEOUT'] ?? 300_000);
+const RUN_TIMEOUT_MS = env.BENCH_RUN_TIMEOUT;
 
 const fixtures = loadFixtures();
 
@@ -67,8 +61,8 @@ test('measure', async ({ page }) => {
     }
   });
 
-  const devices = DEVICES.filter((device) => device !== 'webgpu' || hasWebgpu);
-  if (devices.length < DEVICES.length) {
+  const devices = env.BENCH_DEVICES.filter((device) => device !== 'webgpu' || hasWebgpu);
+  if (devices.length < env.BENCH_DEVICES.length) {
     console.log('webgpu is not available here, measuring what is left');
   }
 
@@ -76,7 +70,7 @@ test('measure', async ({ page }) => {
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
 
   try {
-    for (const model of MODELS) {
+    for (const model of env.BENCH_MODELS) {
       for (const device of devices) {
         for (const fixture of fixtures) {
           const modes: RunConfig['mode'][] = STREAM_FIXTURES.has(fixture.id)
@@ -87,9 +81,9 @@ test('measure', async ({ page }) => {
             const config: RunConfig = {
               url: fixture.url,
               model,
-              device: device as RunConfig['device'],
+              device,
               dtype: 'q4',
-              stepSeconds: STEP,
+              stepSeconds: env.BENCH_STEP,
               mode,
               realtime: mode === 'stream',
               ...(fixture.language ? { language: fixture.language } : {}),
@@ -111,10 +105,8 @@ test('measure', async ({ page }) => {
               ]);
             } catch (cause) {
               const message = cause instanceof Error ? cause.message : String(cause);
-              rows.push(blank(fixture.id, fixture.language, mode, short(model), device, message));
-              console.log(
-                `${fixture.id} ${short(model)} ${device} ${mode}: ${message.slice(0, 90)}`,
-              );
+              rows.push(blank(fixture.id, fixture.language, mode, model, device, message));
+              console.log(`${fixture.id} ${model} ${device} ${mode}: ${message.slice(0, 90)}`);
 
               // The page may still be chewing on whatever hung. Start it again from scratch.
               await page.reload();
@@ -130,7 +122,7 @@ test('measure', async ({ page }) => {
               fixture: fixture.id,
               language: fixture.language,
               mode,
-              model: short(model),
+              model,
               device: result.device,
               askedFor: device,
               audioSeconds: round(result.audioSeconds, 1),
@@ -148,7 +140,7 @@ test('measure', async ({ page }) => {
             });
 
             console.log(
-              `${fixture.id} ${short(model)} ${result.device} ${mode}: rtf ${rtf}` +
+              `${fixture.id} ${model} ${result.device} ${mode}: rtf ${rtf}` +
                 (scored ? ` wer ${(scored.wer * 100).toFixed(1)}%` : ''),
             );
           }
@@ -161,7 +153,11 @@ test('measure', async ({ page }) => {
     await mkdir('report', { recursive: true });
     await writeFile(
       `report/bench-${stamp}.json`,
-      JSON.stringify({ ranAt: new Date().toISOString(), isolated, step: STEP, rows }, null, 2),
+      JSON.stringify(
+        { ranAt: new Date().toISOString(), isolated, step: env.BENCH_STEP, rows },
+        null,
+        2,
+      ),
     );
     await writeFile('report/latest.md', markdown(rows, isolated));
   }
@@ -218,6 +214,10 @@ function markdown(rows: readonly Row[], isolated: boolean): string {
 /**
  * Pooled across clips: total errors over total reference words, not the mean of the per-clip
  * rates. A fifteen word clip should not weigh the same as a sixty word one.
+ *
+ * One pass per clip only, and one row per backend. A streamed run of a clip is the same audio
+ * again, and it costs several times more, so pooling it in counts the clip twice and drags the
+ * mean cost up with it.
  */
 function summary(rows: readonly Row[]): string[] {
   const groups = new Map<
@@ -226,9 +226,11 @@ function summary(rows: readonly Row[]): string[] {
   >();
 
   for (const row of rows) {
-    if (row.error || row.wer === null || row.referenceWords === null) continue;
+    if (row.error || row.mode !== 'oneshot' || row.wer === null || row.referenceWords === null) {
+      continue;
+    }
 
-    const key = `${row.language}|${row.model}`;
+    const key = `${row.language}|${row.model}|${row.device}`;
     const group = groups.get(key) ?? { clips: 0, words: 0, errors: 0, rtf: 0, rates: [] };
     group.clips++;
     group.words += row.referenceWords;
@@ -243,14 +245,14 @@ function summary(rows: readonly Row[]): string[] {
   const lines = [
     '## Pooled',
     '',
-    '| Language | Model | Clips | Reference words | WER | Median WER | Mean RTF |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| Language | Model | Backend | Clips | Reference words | WER | Median WER | Mean RTF |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
 
   for (const [key, group] of [...groups].sort()) {
-    const [language, model] = key.split('|');
+    const [language, model, device] = key.split('|');
     lines.push(
-      `| ${language} | ${model} | ${group.clips} | ${group.words} | ${(
+      `| ${language} | ${model} | ${device} | ${group.clips} | ${group.words} | ${(
         (group.errors / Math.max(group.words, 1)) *
         100
       ).toFixed(1)}% | ${(median(group.rates) * 100).toFixed(1)}% | ${round(
@@ -311,8 +313,4 @@ function percentile(sorted: readonly number[], at: number): number | null {
 function round(value: number, places: number): number {
   const factor = 10 ** places;
   return Math.round(value * factor) / factor;
-}
-
-function short(model: string): string {
-  return (model.split('/').pop() ?? model).replace('_timestamped', '').replace('whisper-', '');
 }

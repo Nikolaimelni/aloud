@@ -9,7 +9,12 @@
     <ul class="list">
       @for (item of archive.sessions(); track item.id) {
         <li>
-          <button type="button" class="row" (click)="open(item.id)">
+          <button
+            type="button"
+            class="row"
+            [disabled]="session.listening()"
+            (click)="open(item.id)"
+          >
             <span class="when">{{ when(item.startedAt) }}</span>
             <span class="length">{{ length(item.seconds) }}</span>
             <span class="preview">{{ preview(item.segments[0]?.text ?? '') }}</span>

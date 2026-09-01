@@ -11,7 +11,7 @@ import { Archive } from './archive';
 })
 export class HistoryList implements OnInit {
   protected readonly archive = inject(Archive);
-  private readonly session = inject(SessionStore);
+  protected readonly session = inject(SessionStore);
 
   protected readonly stored = computed(() => {
     const bytes = this.archive.sessions().reduce((total, item) => total + item.bytes, 0);

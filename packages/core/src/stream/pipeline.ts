@@ -14,7 +14,8 @@ export type StreamUpdate = StabilizerState & {
   readonly confirmedLagSeconds: number;
   /** Seconds of audio the session has taken in so far. */
   readonly heardSeconds: number;
-  readonly lastPassMs: number;
+  /** Model time spent on every pass so far, summed here once rather than by each listener. */
+  readonly computeMs: number;
   readonly passes: number;
 };
 
@@ -31,11 +32,11 @@ export type StreamingOptions = {
 };
 
 /**
- * Joins the four parts up: frames from a source, a speech flag from the detector, windows
- * from the chunker, hypotheses from the model, and one growing transcript out of the
- * stabiliser. Exactly one inference runs at a time; while it does, audio keeps arriving and
- * the next window simply gets longer. That backlog is reported rather than hidden, because a
- * machine that cannot keep up should say so instead of falling quietly behind.
+ * Joins the parts up: frames from a source, a speech flag from the detector, windows from the
+ * chunker, hypotheses from the model, and one growing transcript out of the stabiliser.
+ * Exactly one inference runs at a time; while it does, audio keeps arriving and the next
+ * window simply gets longer. That backlog is reported rather than hidden, because a machine
+ * that cannot keep up should say so instead of falling quietly behind.
  */
 export class StreamingTranscriber {
   private readonly chunker: Chunker;
@@ -43,7 +44,7 @@ export class StreamingTranscriber {
 
   private frames: Promise<void> = Promise.resolve();
   private inFlight: Promise<void> | null = null;
-  private lastPassMs = 0;
+  private computeMs = 0;
   private passes = 0;
   private done: () => void = () => {};
 
@@ -65,6 +66,7 @@ export class StreamingTranscriber {
   }
 
   async start(): Promise<void> {
+    await this.vad.reset();
     await this.source.start((frame) => this.accept(frame));
     void this.source.finished.then(() => this.drain());
   }
@@ -112,7 +114,7 @@ export class StreamingTranscriber {
       timestamps: 'word',
     });
 
-    this.lastPassMs = performance.now() - started;
+    this.computeMs += performance.now() - started;
     this.passes++;
 
     const state = this.stabilizer.push(
@@ -129,7 +131,11 @@ export class StreamingTranscriber {
 
   private async drain(): Promise<void> {
     await this.frames;
-    await this.inFlight;
+    // A pass that finishes calls pump(), which may start the next one, so one await is not
+    // enough: flushing while that next pass runs would send the same audio twice.
+    while (this.inFlight) {
+      await this.inFlight;
+    }
 
     const last = this.chunker.flush();
     if (last) {
@@ -146,7 +152,7 @@ export class StreamingTranscriber {
       backlogSeconds: this.chunker.backlogSeconds,
       confirmedLagSeconds: Math.max(0, this.chunker.heardUntil - this.stabilizer.confirmedUntil),
       heardSeconds: this.chunker.heardUntil,
-      lastPassMs: this.lastPassMs,
+      computeMs: this.computeMs,
       passes: this.passes,
     });
   }

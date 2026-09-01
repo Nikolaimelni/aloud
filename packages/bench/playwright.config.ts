@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { env } from './env';
 
 export default defineConfig({
   testDir: '.',
@@ -10,7 +11,7 @@ export default defineConfig({
     baseURL: 'http://localhost:4300',
     // Headless Chromium cannot get a GPU adapter on this machine whatever flags it is given,
     // so a WebGPU measurement has to run with a window open. BENCH_HEADED=1 does that.
-    headless: process.env['BENCH_HEADED'] !== '1',
+    headless: !env.BENCH_HEADED,
     launchOptions: {
       args: [
         // Headless Chromium needs telling that WebGPU is allowed; without these the bench
@@ -21,8 +22,9 @@ export default defineConfig({
       ],
     },
   },
-  // Only the measurement spec needs the Vite page; the offline check serves the built app
-  // itself, because that is the artefact whose offline behaviour is in question.
+  // Only the measurement spec uses the Vite page, though Playwright starts it for both. The
+  // offline check serves the built app itself, because that is the artefact whose offline
+  // behaviour is in question.
   webServer: {
     command: 'pnpm exec vite --port 4300 --strictPort',
     url: 'http://localhost:4300',
