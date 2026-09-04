@@ -143,7 +143,7 @@ browser telling you the truth about what is being read.
 
 ## Status
 
-The six weeks are up and the plan is done. What exists:
+The plan is done. What exists:
 
 - pnpm workspace, strict TypeScript, lint, CI
 - `AudioWorklet` capture with a level meter
@@ -270,8 +270,8 @@ rather than anything in the app. If I started again I would write the scorer and
 before the thing being scored, and I would treat a surprising measurement as a suspect
 measurement first.
 
-**Two panels was wasted motion.** Weeks one and two grew a "transcribe a file" panel and a
-"stream a file" panel side by side, and week three deleted both for one view with a source
+**Two panels was wasted motion.** The first version grew a "transcribe a file" panel and a
+"stream a file" panel side by side, and the next one deleted both for one view with a source
 picker. The pipeline underneath never changed. I should have built the source picker on day
 one and let the file be a source like any other, which is what the `AudioSource` adapter was
 for in the first place.

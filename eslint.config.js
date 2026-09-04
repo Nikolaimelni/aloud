@@ -1,9 +1,10 @@
 import js from '@eslint/js';
 import angular from 'angular-eslint';
+import { defineConfig } from 'eslint/config';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: ['**/dist/**', '**/.angular/**', '**/coverage/**', 'packages/app/public/**'],
   },
