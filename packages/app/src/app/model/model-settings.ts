@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
+import { whisperLanguage } from '@aloud/core/asr/languages';
 import { WHISPER_MODELS, type WhisperSize } from '@aloud/core/asr/models';
 import type { AsrDevice, AsrModelSpec, AsrPrecision } from '@aloud/core/asr/protocol';
 import { looksLikeAPhone } from './device-class';
@@ -16,6 +17,8 @@ export class ModelSettings {
   readonly device = signal<AsrDevice | 'auto'>('auto');
   readonly precision = signal<AsrPrecision | 'auto'>('auto');
   readonly language = signal('');
+  /** What Whisper gets: a code, '' to let it guess, or null when it would refuse the input. */
+  readonly languageCode = computed(() => whisperLanguage(this.language()));
 
   /** Changes to this mean the worker has to load a different model. */
   key(): string {

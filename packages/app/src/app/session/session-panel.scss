@@ -270,6 +270,10 @@ input[type='number'] {
   border-radius: 2px;
   background: var(--ground);
   color: var(--ink);
+
+  &[aria-invalid='true'] {
+    border-color: var(--alarm);
+  }
 }
 
 .note {

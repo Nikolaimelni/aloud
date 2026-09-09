@@ -33,7 +33,7 @@ Cost is the real-time factor: seconds of compute per second of audio. Under 1 me
 keep up with someone talking. WER is pooled, total errors over total reference words; the
 median is there because of the next paragraph.
 
-**That 149% is a decoder loop, not a typo.** On one six-second Russian clip, whisper-tiny
+That 149% comes from one runaway clip. On a six-second Russian recording, whisper-tiny
 emitted the word "нет" a hundred and ninety-six times and nothing else, eleven hundred
 characters of it. The clip really does open with someone saying "не" five times over, and the
 model latched on and never let go.
@@ -60,14 +60,14 @@ saying so in both directions.
 There is a longer write-up of the streaming design and everything that went wrong building it
 in [docs/local-agreement.md](docs/local-agreement.md).
 
-**English is finished and Russian is not.** Two English clips, read speech and speech to a
+English is finished and Russian is not. Two English clips, read speech and speech to a
 crowd, are transcribed word for word by anything at base or above. Spontaneous Russian over a
 phone-quality line is a median 19% wrong at base, ranging from 4% to 67% across eight clips.
 whisper-small gets the median to 14%, but costs 2.7 times real time, and nearly 5 times in the
 streaming loop.
 
-So the honest shape of this project is **a live English transcriber, and a Russian one you
-point at a recording and wait for.** The translate switch runs the same model on the same
+So the honest shape of this project is a live English transcriber, and a Russian one you
+point at a recording and wait for. The translate switch runs the same model on the same
 audio, so translated Russian inherits the same recognition quality; it does not launder it.
 
 The streaming loop, measured on a minute of English at real speed:
@@ -234,54 +234,53 @@ microphone on one end or a WAV file on the other, and only the file version can 
 
 ## Things it will not do
 
-**It is not instant on a phone.** The first visit downloads about 96 MB before it can
-transcribe anything, and the button says so before you tap it. After that the weights are
-cached and it starts in a second.
+It is not instant on a phone: the first visit downloads about 96 MB before it can transcribe
+anything, and the button says so before you tap it. After that the weights are cached and it
+starts in a second.
 
-**It does not label speakers.** Working out who said what needs a separate embedding model
-plus clustering, and it fails loudly enough that people trust the whole transcript less.
+Speakers are not labelled. Working out who said what needs a separate embedding model plus
+clustering, and it fails loudly enough that people trust the whole transcript less.
 
-**It does not write the summary, it picks it.** The gist is lines lifted out of the
-transcript by similarity, never rewritten, because an abstractive summary needs a second
-language model and a new way to be confidently wrong about what somebody said. It also only
-works on English; a Russian transcript is better summarised after translating it, which the
-app can do in the same pass.
+The gist is lines lifted out of the transcript by similarity and left as they were, because
+an abstractive summary needs a second language model and a new way to be confidently wrong
+about what somebody said. It also only works on English; a Russian transcript is better
+summarised after translating it, which the app can do in the same pass.
 
-**It is not as accurate as a paid API**, and on Russian it is not close. See the numbers: a
-median 19% word error at base, 14% at small, and small costs nearly three times real time.
-English is a different story and the numbers say so too.
+A paid API is more accurate, and on Russian it is not close. See the numbers: a median 19%
+word error at base, 14% at small, and small costs nearly three times real time. English is a
+different story and the numbers say so too.
 
-**WebGPU is not automatically the fast one.** On the laptop this was built on, twelve CPU
-cores beat the GPU by two to one. The backend is a setting for exactly that reason.
+WebGPU does not make it fast by itself. On the laptop this was built on, twelve CPU cores beat
+the GPU by two to one, so the backend is a setting rather than a guess.
 
 ## What I would do differently
 
-**I wrote a latency budget before I could measure anything, and it was wrong by a factor of
-four.** Not wrong in the arithmetic, wrong in the shape: I had the lag as one window step plus
-one pass, when it is two of each, because local agreement needs the same audio to come round
+I wrote a latency budget before I could measure anything, and it was out by a factor of four.
+The arithmetic was fine and the shape was wrong: I had the lag as one window step plus one
+pass, when it is two of each, because local agreement needs the same audio to come round
 twice. No amount of tuning the step fixes that, and I spent a day finding out by tuning the
 step. The budget table stayed in the README next to the measurement for a while, which was the
 most useful thing about it.
 
-**The measurement bugs outnumbered the code bugs.** The word error rate was wrong twice, both
+The measurement bugs outnumbered the code bugs. The word error rate was wrong twice, both
 times because the normaliser scored "Mr." against "MISTER" and "50" against "пятьдесят" as
 mistakes. The offline test failed twice, both times because of headers and timing in the test
 rather than anything in the app. If I started again I would write the scorer and its tests
 before the thing being scored, and I would treat a surprising measurement as a suspect
 measurement first.
 
-**Two panels was wasted motion.** The first version grew a "transcribe a file" panel and a
+Two panels was wasted motion. The first version grew a "transcribe a file" panel and a
 "stream a file" panel side by side, and the next one deleted both for one view with a source
 picker. The pipeline underneath never changed. I should have built the source picker on day
 one and let the file be a source like any other, which is what the `AudioSource` adapter was
 for in the first place.
 
-**The SharedArrayBuffer ring never got built.** The plan called for one, the capture worklet
+The SharedArrayBuffer ring never got built. The plan called for one, the capture worklet
 still allocates a four kilobyte buffer on the audio thread fifty times a second, and nothing
 has glitched. Leaving it is the right call on the evidence and it is still the piece I would
 reach for first if a dropout ever showed up.
 
-**Whisper is the wrong shape for this and I would pick it again.** An encoder that pads every
+Whisper is the wrong shape for this and I would pick it again. An encoder that pads every
 window to thirty seconds is the reason a pass costs a fixed second and the reason live Russian
 is out of reach here. A model built for streaming would be better at this job. It would also
 not have twenty language-quality comparisons, four quantisations and an ONNX export that runs

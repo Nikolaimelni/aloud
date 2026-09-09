@@ -223,10 +223,17 @@
         type="text"
         placeholder="auto"
         size="8"
+        list="languages"
         [value]="settings.language()"
+        [attr.aria-invalid]="settings.languageCode() === null"
         [disabled]="store.listening()"
         (input)="setLanguage($event)"
       />
+      <datalist id="languages">
+        @for (name of languageNames; track name) {
+          <option [value]="name"></option>
+        }
+      </datalist>
     </label>
 
     <label>

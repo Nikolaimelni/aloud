@@ -4,8 +4,8 @@ Whisper reads a window of audio and writes the whole window out. There is no par
 no token you can take early, nothing that arrives while the sentence is still being said. It
 is an encoder-decoder over a fixed thirty second window, and it was never meant for live use.
 
-So how do the live browser demos work? They run it again and again over a window that keeps
-moving, and then decide which part of each answer to believe. That second half is where all
+The live browser demos run it again and again over a window that keeps moving, and then
+decide which part of each answer to believe. That second half is where all
 the interesting problems are, and it is what this is about.
 
 ## Local agreement
@@ -31,11 +31,11 @@ colour and never moves again. The guess is set in amber and is rewritten two or 
 a second. If you show them identically, the reader watches the text twitch and does not know
 which parts to trust.
 
-## The arithmetic nobody tells you
+## The latency arithmetic
 
 Before measuring anything I wrote down a latency budget: capture buffer, voice detection,
 inference window, and a line saying confirmed text lags by "one more window step". It was
-wrong by a factor of four, and not in the arithmetic. In the shape.
+wrong by a factor of four. The sums were right; the shape of the formula was wrong.
 
 A word waits for a window step before a pass includes it. Then it waits for the pass. Then it
 waits for the _next_ step, because agreement needs two. Then it waits for that pass as well.
@@ -46,7 +46,7 @@ lag ≈ 2 × (window step + pass time)
 ```
 
 Measured on a laptop, whisper-base on WASM with a 1.5 second step: the confirmed text ran
-three point nine to four point seven seconds behind the speaker. Not one second. Not two.
+three point nine to four point seven seconds behind the speaker.
 
 The obvious lever is the window step, and it does not work the way you would hope. I tried
 2.2 seconds expecting the queue to drain and the lag to fall. The lag got worse, to 5.3
@@ -76,13 +76,16 @@ Whatever it saw most often over quiet audio.
 This is not a rare edge case you can leave for later. It is the first thing anyone will see,
 because the first thing anyone does is open the page and not say anything.
 
-The fix is voice activity detection in front of the model, and its job is not what you would
-guess. It is not there to find word boundaries or to cut the windows; the stabiliser handles
-boundaries better, because it cuts between words it has already confirmed. The detector is
-there to stop the model running at all when nobody is speaking. Silero VAD in a worker, two
-megabytes, thirty-two millisecond blocks, and two thresholds rather than one so it does not
-chatter on every breath, plus a hangover so a pause between words is not read as the end of
-speech.
+The fix is voice activity detection in front of the model, and its job is narrower than it
+sounds. The stabiliser already cuts windows between words it has confirmed, which beats any
+boundary a detector could offer, so the detector only decides whether the model runs at all.
+Silero VAD in a worker, two megabytes, thirty-two millisecond blocks, and two thresholds
+rather than one so it does not chatter on every breath, plus a hangover so a pause between
+words is not read as the end of speech.
+
+That decision has to hold at the end of a session as well. The first version flushed
+whatever audio was left when you pressed stop, so a session nobody spoke in still ended with
+the model's opinion of silence, confirmed and saved.
 
 ## Decoder loops
 
@@ -112,8 +115,8 @@ It does not rescue the content. The model genuinely cannot transcribe this clip 
 What it does is turn a page of noise into an obviously empty answer, which is the better way
 to be wrong: a reader can see that nothing was understood.
 
-The trimming only ever looks at the end of a hypothesis. That is not laziness, it is where the
-failure lives: a decoder that has come off the rails never stops, so the repetition is always
+The trimming only ever looks at the end of a hypothesis. That is deliberate, because the tail
+is where the failure lives: a decoder that has come off the rails never stops, so the repetition is always
 at the tail. A repetition in the middle of a sentence is somebody talking and is left alone.
 The price is that a genuine repetition ending a window gets cut too, and there is no way to
 tell them apart from the text.
@@ -133,12 +136,14 @@ testing, "my fellow Americans" reliably lost "Americans".
 
 A word arriving with nothing in front of it is a word without its run-up: no coarticulation
 from the previous syllable, no room tone, nothing. So the cut keeps four hundred milliseconds
-of audio behind the boundary. The re-transcribed words from that margin are dropped by the
-timestamp filter that was already there, so it costs nothing but the buffer.
+of audio behind the boundary. Most of what the model hears again in that margin falls to the
+timestamp filter that was already there. The word straddling the boundary can come back with
+its end time late enough to slip past, so it is also compared with the last confirmed word
+and dropped when they match.
 
 ## What I actually got wrong
 
-Not the algorithm. The measurements.
+Mostly the measurements.
 
 The word error rate was wrong twice, and both times the scoring was at fault rather than the
 model. First it counted "Mr." against a reference reading "MISTER" as an error, which on a

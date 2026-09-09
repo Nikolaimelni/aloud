@@ -108,6 +108,15 @@ export class SessionStore {
   async start(file?: File): Promise<void> {
     if (this.listening()) return;
 
+    // Checked before anything is cleared, so a typo does not cost the transcript on screen.
+    const language = this.settings.languageCode();
+    if (language === null) {
+      this.error.set(
+        `Whisper does not know "${this.settings.language().trim()}". Leave the language empty to let it guess, or give a code such as ru or a name such as russian.`,
+      );
+      return;
+    }
+
     const generation = ++this.generation;
     this.error.set(null);
     this.segments.set([]);
@@ -120,7 +129,7 @@ export class SessionStore {
     this.computeMs.set(0);
     this.startedAt = new Date();
     this.sessionId = crypto.randomUUID();
-    this.sessionLanguage = this.settings.language().trim();
+    this.sessionLanguage = language;
     this.sessionTranslated = this.translate();
     this.recorder = new Recorder();
     this.paused.set(false);

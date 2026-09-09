@@ -7,6 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { LANGUAGE_NAMES } from '@aloud/core/asr/languages';
 import {
   isWhisperSize,
   WHISPER_MODELS,
@@ -61,6 +62,7 @@ export class SessionPanel {
   protected readonly sources = SOURCES;
   protected readonly sizes = WHISPER_SIZES;
   protected readonly precisions = PRECISIONS;
+  protected readonly languageNames = LANGUAGE_NAMES;
   protected readonly playhead = signal(0);
 
   private readonly player = viewChild<ElementRef<HTMLAudioElement>>('player');
