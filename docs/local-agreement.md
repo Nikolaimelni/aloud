@@ -105,11 +105,11 @@ times over. The model latched onto a genuine repetition and could not let go.
 The stabiliser cuts this back, and because the benchmark can run the same clip both ways, the
 value of that is measurable rather than asserted:
 
-| ru-03, whisper-tiny | one pass       | through the stabiliser |
-| ------------------- | -------------- | ---------------------- |
-| word error rate     | 853.8%         | 96.2%                  |
-| characters out      | 1109           | 7                      |
-| cost                | 2.5x real time | 15.5x real time        |
+| ru-03, whisper-tiny | one pass | through the stabiliser |
+| ------------------- | -------- | ---------------------- |
+| word error rate     | 853.8%   | 96.2%                  |
+| characters out      | 1109     | 7                      |
+| cost                | 2.1-2.5x | 6.1-7.8x               |
 
 It does not rescue the content. The model genuinely cannot transcribe this clip at that size.
 What it does is turn a page of noise into an obviously empty answer, which is the better way
@@ -122,7 +122,7 @@ The price is that a genuine repetition ending a window gets cut too, and there i
 tell them apart from the text.
 
 Look at the cost column as well. When the model loops, every window loops, and the streaming
-pipeline burns fifteen times real time producing nothing. Whatever interface sits on top of
+pipeline burns six to eight times real time producing nothing. Whatever interface sits on top of
 this needs to notice that and say so, rather than looking busy.
 
 ## The cut that ate a word

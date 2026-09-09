@@ -88,6 +88,7 @@ async function run(config: RunConfig): Promise<RunResult> {
 
   const source = new WavSource({ data, speed: config.realtime ? 1 : Infinity });
   const lagSeconds: number[] = [];
+  const errors: string[] = [];
   let computeMs = 0;
   let passes = 0;
   let heard = 0;
@@ -107,10 +108,17 @@ async function run(config: RunConfig): Promise<RunResult> {
         lagSeconds.push(update.confirmedLagSeconds);
       }
     },
+    onError: (error) => errors.push(unwrap(error)),
   });
 
   await transcriber.start();
   await transcriber.finished;
+
+  // A pass that fails is otherwise just a pass that never happened, and a run where every pass
+  // failed comes back as zero passes and a minute of lag that looks like a measurement.
+  if (errors.length > 0) {
+    throw new Error(`${errors.length} passes failed, first: ${errors[0]}`);
+  }
 
   return {
     text,

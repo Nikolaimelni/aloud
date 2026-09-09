@@ -18,7 +18,8 @@ more than I expected.
 
 These come out of `pnpm bench`, which plays fixtures through the real pipeline in a real
 Chromium, scores the transcript against a reference where there is one, and writes a report.
-Latest run: q4 weights on WASM with twelve threads, one pass over the whole file.
+q4 weights on WASM with twelve threads, one pass over the whole file. The error rates come out
+identical on every run; the costs move, for reasons further down.
 
 | Language | Model | Clips | Reference words | WER    | Median WER | Mean cost |
 | -------- | ----- | ----- | --------------- | ------ | ---------- | --------- |
@@ -44,13 +45,13 @@ That clip is also run through the streaming path, so the two can be compared dir
 | ------------------- | --------------- | ------------ |
 | WER                 | 853.8%          | 96.2%        |
 | what came out       | 1109 characters | 7 characters |
-| cost                | 2.5             | 15.5         |
+| cost                | 2.1 to 2.5      | 6.1 to 7.8   |
 
 The stabiliser's loop trimming is what closes that gap. It does not rescue the content, the
 model simply cannot do this clip at tiny, but it turns a page of noise into an obviously empty
 answer, which is the better way to be wrong. Note the cost column too: when the model loops,
-every window loops, and the streaming pipeline burns fifteen times real time doing it. That is
-exactly when the interface says it is falling behind.
+every window loops, and the streaming pipeline burns six to eight times real time doing it.
+That is exactly when the interface says it is falling behind.
 
 The trimming only ever looks at the end of a hypothesis, because that is where a runaway
 decoder lives: it never stops, so the repetition is always at the tail. A repetition in the
@@ -78,10 +79,15 @@ The streaming loop, measured on a minute of English at real speed:
 | confirmed lag, p50 | 2.7 s | 4.4 s | 10.0 s |
 | confirmed lag, p90 | 7.3 s | 8.1 s | 15.0 s |
 
-The streaming costs here and in the ru-03 table are from before a fix to the end of a stream:
-the pipeline counted its last pass twice, and when a pass was still running at the end it ran
-the final window twice as well. The one-pass numbers are unaffected. The next `pnpm bench`
-will bring the streaming ones down, most on a clip as short as ru-03.
+The ru-03 costs come from two runs after a fix to the end of a stream. The pipeline used to
+count its last pass twice, and when a pass was still running at the end it ran the final
+window twice as well; on a six-second clip that was most of the old figure of 15.5. On the
+minute of English it is one pass in thirty, well inside the spread between runs, so this
+table is still the earlier run.
+
+The spread is wide. The same one-pass work, same audio in and the same text out, has run up
+to 1.9 times slower from one run to the next on this laptop, and seven streaming runs of the
+same code put tiny anywhere from 0.87 to 1.2. Compare numbers within a run, not across runs.
 
 One more caveat, because it has bitten this project twice. Word error rate is only as good as
 its text normaliser. Before this one spelled out "Mr." and turned "пятьдесят" into "50",
