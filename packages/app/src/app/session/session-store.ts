@@ -187,7 +187,6 @@ export class SessionStore {
     }
   }
 
-  /** Bring a session back from storage, transcript and recording both. */
   async reopen(id: string): Promise<void> {
     if (this.listening()) return;
 
@@ -210,7 +209,6 @@ export class SessionStore {
     }
   }
 
-  /** Pick the lines that carry the session, by sentence embedding rather than by a second model. */
   async summarise(): Promise<void> {
     const segments = this.segments();
     if (segments.length === 0 || this.summarising()) return;

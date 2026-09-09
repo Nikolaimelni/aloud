@@ -10,9 +10,7 @@ const DEFAULT_BACKPRESSURE = 5;
 export type StreamUpdate = StabilizerState & {
   /** Seconds of audio that have not been through the model yet. */
   readonly backlogSeconds: number;
-  /** How far behind the confirmed text is running, in seconds of speech. */
   readonly confirmedLagSeconds: number;
-  /** Seconds of audio the session has taken in so far. */
   readonly heardSeconds: number;
   /** Model time spent on every pass so far, summed here once rather than by each listener. */
   readonly computeMs: number;
