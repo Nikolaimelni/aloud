@@ -23,6 +23,8 @@ const WORKLET_URL = 'worklets/capture.js';
 const BEHIND_SECONDS = 3;
 /** Enough level readings for about three seconds of meter. */
 const LEVELS = 140;
+/** A picked WAV and its decoded copy sit in memory together, two to three times the file. */
+const MAX_FILE_BYTES = 500_000_000;
 
 @Injectable({ providedIn: 'root' })
 export class SessionStore {
@@ -108,11 +110,18 @@ export class SessionStore {
   async start(file?: File): Promise<void> {
     if (this.listening()) return;
 
-    // Checked before anything is cleared, so a typo does not cost the transcript on screen.
+    // Checked before anything is cleared, so a typo or a huge file does not cost the transcript
+    // on screen.
     const language = this.settings.languageCode();
     if (language === null) {
       this.error.set(
         `Whisper does not know "${this.settings.language().trim()}". Leave the language empty to let it guess, or give a code such as ru or a name such as russian.`,
+      );
+      return;
+    }
+    if (file && file.size > MAX_FILE_BYTES) {
+      this.error.set(
+        `That file is ${Math.round(file.size / 1_000_000)} MB and the limit is ${MAX_FILE_BYTES / 1_000_000} MB. Save it as mono 16 kHz first: that is all the model hears, and an hour of it is 115 MB.`,
       );
       return;
     }

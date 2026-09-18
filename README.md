@@ -244,6 +244,10 @@ It is not instant on a phone: the first visit downloads about 96 MB before it ca
 anything, and the button says so before you tap it. After that the weights are cached and it
 starts in a second.
 
+It reads WAV and nothing else, up to 500 MB, because the file and its decoded copy sit in
+memory together. Mono 16 kHz is all the model hears, so converting a long recording first
+loses nothing, and an hour of it is 115 MB.
+
 Speakers are not labelled. Working out who said what needs a separate embedding model plus
 clustering, and it fails loudly enough that people trust the whole transcript less.
 

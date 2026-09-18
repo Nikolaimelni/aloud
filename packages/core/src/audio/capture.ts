@@ -55,6 +55,12 @@ export class MediaCapture implements AudioSource {
     }
     this.stream = stream;
 
+    // Stop sharing in the browser bar, or a microphone pulled out, ends the track and nothing
+    // else. Frames just stop, and without this the session would wait for them forever.
+    for (const track of stream.getAudioTracks()) {
+      track.addEventListener('ended', () => void this.stop(), { once: true });
+    }
+
     // An AudioContext will happily resample to 16 kHz for us, but then live audio and the
     // WAV fixtures in CI would travel through different code. One resampler, ours, always.
     const context = new AudioContext();
