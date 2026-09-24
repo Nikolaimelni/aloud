@@ -7,6 +7,10 @@ import { Stabilizer, type StabilizerState } from './stabilize';
 
 const DEFAULT_BACKPRESSURE = 5;
 
+/** Only the calls made here, so a test can stand in for the workers. */
+type Vad = Pick<VadClient, 'reset' | 'classify'>;
+type Asr = Pick<AsrClient, 'transcribe'>;
+
 export type StreamUpdate = StabilizerState & {
   /** Seconds of audio that have not been through the model yet. */
   readonly backlogSeconds: number;
@@ -21,8 +25,8 @@ export type StreamingOptions = {
   readonly chunker?: ChunkerOptions;
   readonly transcribe?: TranscribeOptions;
   /**
-   * Stop taking frames once this much audio is waiting. A file source honours it and slows
-   * down; a microphone cannot, which is what the backlog figure is for.
+   * Once this much audio is waiting, a source that can wait is held until the pass in flight
+   * finishes. A live one never is: holding it would only hide the backlog in a queue of frames.
    */
   readonly backpressureSeconds?: number;
   readonly onUpdate: (update: StreamUpdate) => void;
@@ -51,11 +55,11 @@ export class StreamingTranscriber {
   });
 
   private readonly source: AudioSource;
-  private readonly vad: VadClient;
-  private readonly asr: AsrClient;
+  private readonly vad: Vad;
+  private readonly asr: Asr;
   private readonly options: StreamingOptions;
 
-  constructor(source: AudioSource, vad: VadClient, asr: AsrClient, options: StreamingOptions) {
+  constructor(source: AudioSource, vad: Vad, asr: Asr, options: StreamingOptions) {
     this.source = source;
     this.vad = vad;
     this.asr = asr;
@@ -64,8 +68,14 @@ export class StreamingTranscriber {
   }
 
   async start(): Promise<void> {
-    await this.vad.reset();
-    await this.source.start((frame) => this.accept(frame));
+    try {
+      await this.vad.reset();
+      await this.source.start((frame) => this.accept(frame));
+    } catch (error) {
+      // Nothing will drain a stream that never started, and stop() waits for `finished`.
+      this.done();
+      throw error;
+    }
     void this.source.finished.then(() => this.drain());
   }
 
@@ -82,7 +92,7 @@ export class StreamingTranscriber {
         this.pump();
 
         const limit = this.options.backpressureSeconds ?? DEFAULT_BACKPRESSURE;
-        if (this.inFlight && this.chunker.backlogSeconds > limit) {
+        if (!this.source.live && this.inFlight && this.chunker.backlogSeconds > limit) {
           await this.inFlight;
         }
       })

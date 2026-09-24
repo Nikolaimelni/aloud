@@ -28,10 +28,12 @@ export class WavSource implements AudioSource {
     this.done = resolve;
   });
 
+  readonly live: boolean;
   private readonly options: WavSourceOptions;
 
   constructor(options: WavSourceOptions) {
     this.options = options;
+    this.live = Number.isFinite(options.speed ?? Infinity);
   }
 
   async start(onFrame: FrameHandler): Promise<void> {
@@ -64,7 +66,7 @@ export class WavSource implements AudioSource {
   ): Promise<void> {
     const resampler = new Resampler(sampleRate);
     const delay = resampler.delaySamples / TARGET_SAMPLE_RATE;
-    const frameMs = (frameSize / sampleRate / speed) * 1000;
+    const started = performance.now();
     let produced = 0;
     let sinceYield = 0;
 
@@ -77,8 +79,10 @@ export class WavSource implements AudioSource {
         produced += block.length;
       }
 
-      if (Number.isFinite(frameMs)) {
-        await sleep(frameMs);
+      if (this.live) {
+        // Against the clock rather than a pause after each frame, which would add the time the
+        // handler took to every frame and play a real-time file slow.
+        await sleep(started + (end / sampleRate / speed) * 1000 - performance.now());
       } else if (++sinceYield === YIELD_EVERY) {
         sinceYield = 0;
         await sleep(0);

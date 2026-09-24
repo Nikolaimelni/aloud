@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { WavSource } from './wav-source';
 import type { AudioFrame } from './source';
 
@@ -91,5 +91,24 @@ describe('WavSource', () => {
     await source.finished;
 
     expect(frames).toBeLessThan(10);
+  });
+
+  it('keeps to real time when the handler is slow', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'performance'] });
+    try {
+      const source = new WavSource({ data: wav(16_000, 1), frameSize: 1600, speed: 1 });
+      const delivered: number[] = [];
+      await source.start(async () => {
+        delivered.push(performance.now());
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(delivered).toHaveLength(10);
+      expect(delivered.at(-1)! - delivered[0]!).toBeCloseTo(900, -1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

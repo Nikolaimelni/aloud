@@ -7,6 +7,7 @@ import type { AudioFrame, AudioSource } from './source';
 export function tapFrames(source: AudioSource, watch: (frame: AudioFrame) => void): AudioSource {
   return {
     finished: source.finished,
+    live: source.live,
     start: (onFrame) =>
       source.start((frame) => {
         watch(frame);

@@ -26,6 +26,7 @@ export class MediaCapture implements AudioSource {
   private stopped = false;
   private done: () => void = () => {};
 
+  readonly live = true;
   readonly finished = new Promise<void>((resolve) => {
     this.done = resolve;
   });

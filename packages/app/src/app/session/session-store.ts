@@ -86,12 +86,14 @@ export class SessionStore {
   readonly listening = computed(() => this.phase() === 'listening' || this.phase() === 'loading');
 
   /**
-   * Audio arriving faster than the model clears it. Only meaningful live: a file is throttled
-   * on purpose and sits at the back-pressure limit by design, which is not the same thing.
+   * Audio arriving faster than the model clears it. Only meaningful live: a file read as fast
+   * as it goes is held at the back-pressure limit on purpose, which is not the same thing.
    */
   readonly fallingBehind = computed(
     () =>
-      this.phase() === 'listening' && this.source() !== 'file' && this.backlog() > BEHIND_SECONDS,
+      this.phase() === 'listening' &&
+      (this.source() !== 'file' || !this.fasterThanReal()) &&
+      this.backlog() > BEHIND_SECONDS,
   );
 
   readonly matches = computed(() => {

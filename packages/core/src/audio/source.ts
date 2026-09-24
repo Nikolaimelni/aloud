@@ -9,9 +9,9 @@ export type AudioFrame = {
 };
 
 /**
- * A handler may return a promise. A file source waits for it, which paces the file to
- * whatever the pipeline can actually sustain; a microphone ignores it, because audio arrives
- * whether or not anyone is ready.
+ * A handler may return a promise. A file read as fast as it goes waits for it, which paces the
+ * file to whatever the pipeline can actually sustain. Live audio arrives whether or not anyone
+ * is ready.
  */
 export type FrameHandler = (frame: AudioFrame) => void | Promise<void>;
 
@@ -25,4 +25,9 @@ export type AudioSource = {
   stop(): Promise<void>;
   /** Resolves when no more frames are coming: the file ran out, or stop() was called. */
   readonly finished: Promise<void>;
+  /**
+   * Frames come on their own clock: a microphone, a tab, or a file played at real speed.
+   * Holding the handler back would only queue them, so the pipeline never does.
+   */
+  readonly live: boolean;
 };
