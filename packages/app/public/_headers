@@ -1,9 +1,11 @@
 # 'unsafe-eval' is for onnxruntime: its asyncify and WebGPU builds make functions with
-# new Function. connect-src is the part that keeps the audio in the tab, whatever runs here.
+# new Function. connect-src lets huggingface.co in only under the two orgs the models come
+# from, because the rest of it is an API that takes uploads. Files there redirect to
+# /api/resolve-cache, which still loads: CSP stops checking the path after a redirect.
 /*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: credentialless
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' https://huggingface.co/onnx-community/ https://huggingface.co/Xenova/ https://*.huggingface.co https://*.hf.co; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: microphone=(self), display-capture=(self), camera=(), geolocation=()

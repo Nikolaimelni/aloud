@@ -137,8 +137,10 @@ first run, pinned to a commit and cached afterwards. onnxruntime's WebAssembly s
 the build rather than coming from a CDN, so no code runs in the tab that did not come from
 this repository's lockfile. After that it opens with the network off. Nothing is sent the
 other way: no analytics, no error reporting, no account, no request that carries a word of
-what you said. The Content-Security-Policy holds the page to that, since it may only connect
-to itself and to Hugging Face.
+what you said. The Content-Security-Policy holds the page to that: it may connect to itself,
+to Hugging Face's file hosts, and to huggingface.co only under the two organisations the
+models come from, since the rest of that site is an API that would take an upload. A policy
+cannot stop a page navigating away, so this is a fence rather than a proof.
 
 Recordings and transcripts are kept in IndexedDB on the machine you used, the last ten
 sessions, and "Delete all" means it. Clearing the site data clears them too, along with the
