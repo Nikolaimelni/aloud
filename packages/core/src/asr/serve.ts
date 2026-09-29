@@ -1,6 +1,6 @@
 import { AloudError, unwrap } from '../errors';
 import { Embedder } from '../summary/embed';
-import { WhisperEngine } from './engine';
+import { serveRuntimeFrom, WhisperEngine } from './engine';
 import type { AsrEvent, AsrRequest } from './protocol';
 
 /**
@@ -28,6 +28,7 @@ export function createAsrHandler(
       }
 
       if (request.kind === 'embed') {
+        if (request.runtimeUrl) serveRuntimeFrom(request.runtimeUrl);
         const vectors = await embedder.embed(request.texts, engine.device ?? 'wasm');
         post({
           kind: 'vectors',

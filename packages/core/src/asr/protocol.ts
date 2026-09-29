@@ -49,10 +49,16 @@ export type AsrRequest =
     }
   /**
    * Sentence embeddings for the summary. They live in this worker rather than a third one
-   * because transformers.js is already resident here, and they only ever run when Whisper
-   * has finished and is sitting idle.
+   * because transformers.js is already resident here. They never run while Whisper is
+   * transcribing, and do not need it loaded.
    */
-  | { readonly kind: 'embed'; readonly id: number; readonly texts: readonly string[] }
+  | {
+      readonly kind: 'embed';
+      readonly id: number;
+      readonly texts: readonly string[];
+      /** As for load: a summary can be the first thing this worker is asked for. */
+      readonly runtimeUrl?: string;
+    }
   | {
       readonly kind: 'transcribe';
       readonly id: number;

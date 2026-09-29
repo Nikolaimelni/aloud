@@ -66,9 +66,14 @@ export class AsrClient {
     return { transcript: event.transcript, elapsedMs: event.elapsedMs };
   }
 
-  /** Unit vectors, one per text, for the extractive summary. */
-  async embed(texts: readonly string[]): Promise<Float32Array[]> {
-    const event = await this.channel.request((id) => ({ kind: 'embed', id, texts }));
+  /** Unit vectors, one per text, for the extractive summary. Whisper need not be loaded. */
+  async embed(texts: readonly string[], runtimeUrl?: string): Promise<Float32Array[]> {
+    const event = await this.channel.request((id) => ({
+      kind: 'embed',
+      id,
+      texts,
+      ...(runtimeUrl ? { runtimeUrl } : {}),
+    }));
     if (event.kind !== 'vectors') {
       throw new AloudError('inference-failed', `worker answered embed with ${event.kind}`);
     }

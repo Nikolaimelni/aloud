@@ -9,7 +9,13 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { clock, highlight, type Segment, type TextPart } from '@aloud/core/stream/transcript';
+import {
+  clock,
+  contains,
+  highlight,
+  type Segment,
+  type TextPart,
+} from '@aloud/core/stream/transcript';
 
 /** Close enough to the bottom that the reader clearly wants to follow along. */
 const STICKY_PX = 24;
@@ -49,11 +55,11 @@ export class TranscriptView {
   protected readonly announcement = signal('');
 
   protected readonly rows = computed<Row[]>(() => {
-    const needle = this.query().trim().toLowerCase();
+    const needle = this.query().trim();
     const at = this.playhead();
 
     return this.segments()
-      .filter((segment) => !needle || segment.text.toLowerCase().includes(needle))
+      .filter((segment) => contains(segment.text, needle))
       .map((segment) => ({
         start: segment.start,
         stamp: clock(segment.start),
@@ -62,10 +68,6 @@ export class TranscriptView {
         active: at >= segment.start && at < segment.end,
       }));
   });
-
-  protected readonly filtered = computed(
-    () => this.query().trim().length > 0 && this.rows().length !== this.segments().length,
-  );
 
   constructor() {
     effect(() => {

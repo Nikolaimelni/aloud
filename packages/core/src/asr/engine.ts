@@ -101,7 +101,7 @@ export class WhisperEngine {
  * transformers.js points onnxruntime at jsDelivr when it is imported. Keep the build it chose,
  * which is a different one on Safari, and change only where the files come from.
  */
-function serveRuntimeFrom(base: string): void {
+export function serveRuntimeFrom(base: string): void {
   const wasm = env.backends.onnx.wasm;
   const paths = wasm?.wasmPaths;
   if (!wasm || !paths || typeof paths === 'string' || paths instanceof URL) return;

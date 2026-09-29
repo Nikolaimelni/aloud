@@ -240,8 +240,8 @@
       Window step
       <input
         type="number"
-        min="0.5"
-        max="10"
+        [attr.min]="stepRange.min"
+        [attr.max]="stepRange.max"
         step="0.1"
         size="4"
         [value]="store.windowStep()"

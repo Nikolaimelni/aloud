@@ -146,6 +146,19 @@ export type TextPart = {
 };
 
 /**
+ * Case-insensitive, with positions in the text as given. Searching a lowercased copy would
+ * shift every match after a character that lowercases to two, such as 'İ'.
+ */
+function pattern(needle: string): RegExp {
+  return new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
+}
+
+/** Whether a line matches the search, by the same rule the highlighting uses. */
+export function contains(text: string, needle: string): boolean {
+  return !needle || pattern(needle).test(text);
+}
+
+/**
  * Splits a line around every occurrence of a search term, so the view can mark the matches
  * without putting markup into the transcript itself.
  */
@@ -155,19 +168,14 @@ export function highlight(text: string, needle: string): TextPart[] {
   }
 
   const parts: TextPart[] = [];
-  const haystack = text.toLowerCase();
-  const wanted = needle.toLowerCase();
   let at = 0;
 
-  for (;;) {
-    const found = haystack.indexOf(wanted, at);
-    if (found === -1) break;
-
-    if (found > at) {
-      parts.push({ text: text.slice(at, found), hit: false });
+  for (const match of text.matchAll(pattern(needle))) {
+    if (match.index > at) {
+      parts.push({ text: text.slice(at, match.index), hit: false });
     }
-    parts.push({ text: text.slice(found, found + wanted.length), hit: true });
-    at = found + wanted.length;
+    parts.push({ text: match[0], hit: true });
+    at = match.index + match[0].length;
   }
 
   if (at < text.length) {

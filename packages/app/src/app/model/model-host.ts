@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import type { AsrDevice, ModelProgress } from '@aloud/core/asr/protocol';
-import type { AsrClient } from '@aloud/core/asr/worker-client';
+import { AsrClient } from '@aloud/core/asr/worker-client';
 import { loadEngines } from '@aloud/core/engines';
 import type { VadClient } from '@aloud/core/vad/worker-client';
 import { ModelSettings } from './model-settings';
@@ -16,6 +16,11 @@ export type Loaded = {
  */
 const RUNTIME_URL = new URL('ort/', document.baseURI).href;
 
+const asrWorker = () =>
+  new Worker(new URL('../asr/asr.worker', import.meta.url), { type: 'module' });
+const vadWorker = () =>
+  new Worker(new URL('../vad/vad.worker', import.meta.url), { type: 'module' });
+
 /** Owns the two workers so a session does not load the same weights twice. */
 @Injectable({ providedIn: 'root' })
 export class ModelHost {
@@ -23,6 +28,8 @@ export class ModelHost {
   private readonly downloads = new Map<string, ModelProgress>();
 
   private loaded: Loaded | null = null;
+  /** An ASR worker with no Whisper in it, for a summary asked for before anything loaded. */
+  private embedder: AsrClient | null = null;
   private pending: { readonly key: string; readonly loaded: Promise<Loaded> } | null = null;
   private readonly loadedKey = signal<string | null>(null);
 
@@ -34,9 +41,14 @@ export class ModelHost {
   /** False until the weights for the current settings are in the browser. */
   readonly hasWeights = computed(() => this.loadedKey() === this.settings.key());
 
-  /** Whatever is loaded now, without swapping in the model the settings have moved on to. */
-  current(): Loaded | null {
-    return this.loaded;
+  /**
+   * Sentence vectors for the summary, from whichever ASR worker is up. Never through ready():
+   * a reopened session needs the embedder, not a Whisper download for whatever the model
+   * picker says now.
+   */
+  embed(texts: readonly string[]): Promise<Float32Array[]> {
+    const asr = this.loaded?.asr ?? (this.embedder ??= new AsrClient(asrWorker()));
+    return asr.embed(texts, RUNTIME_URL);
   }
 
   /**
@@ -68,7 +80,9 @@ export class ModelHost {
   private async load(key: string): Promise<Loaded> {
     this.loaded?.asr.dispose();
     this.loaded?.vad.dispose();
+    this.embedder?.dispose();
     this.loaded = null;
+    this.embedder = null;
     this.loadedKey.set(null);
     this.downloads.clear();
     this.download.set(null);
@@ -76,10 +90,8 @@ export class ModelHost {
 
     try {
       const engines = await loadEngines({
-        asrWorker: () =>
-          new Worker(new URL('../asr/asr.worker', import.meta.url), { type: 'module' }),
-        vadWorker: () =>
-          new Worker(new URL('../vad/vad.worker', import.meta.url), { type: 'module' }),
+        asrWorker,
+        vadWorker,
         spec: this.settings.spec(),
         runtimeUrl: RUNTIME_URL,
         onProgress: (progress) => this.track(progress),

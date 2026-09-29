@@ -34,6 +34,14 @@ export class HistoryList implements OnInit {
     void this.archive.remove(id);
   }
 
+  protected clear(): void {
+    const count = this.archive.sessions().length;
+    const what = count === 1 ? 'the saved session' : `all ${count} saved sessions`;
+    if (confirm(`Delete ${what}, audio included? There is no undo.`)) {
+      void this.archive.clear();
+    }
+  }
+
   protected when(at: number): string {
     return new Date(at).toLocaleString(undefined, {
       month: 'short',

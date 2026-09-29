@@ -8,7 +8,13 @@ import { WavSource } from '@aloud/core/audio/wav-source';
 import { AloudError } from '@aloud/core/errors';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
 import { textOf } from '@aloud/core/stream/stabilize';
-import { localStamp, toMarkdown, toSegments, type Segment } from '@aloud/core/stream/transcript';
+import {
+  contains,
+  localStamp,
+  toMarkdown,
+  toSegments,
+  type Segment,
+} from '@aloud/core/stream/transcript';
 import { pickKeyLines } from '@aloud/core/summary/select';
 import type { AudioFrame, AudioSource } from '@aloud/core/audio/source';
 import { Archive } from '../history/archive';
@@ -97,9 +103,8 @@ export class SessionStore {
   );
 
   readonly matches = computed(() => {
-    const needle = this.query().trim().toLowerCase();
-    if (!needle) return this.segments();
-    return this.segments().filter((segment) => segment.text.toLowerCase().includes(needle));
+    const needle = this.query().trim();
+    return this.segments().filter((segment) => contains(segment.text, needle));
   });
 
   constructor() {
@@ -206,6 +211,7 @@ export class SessionStore {
     if (!saved || generation !== this.generation) return;
 
     this.releaseRecording();
+    this.error.set(null);
     this.segments.set(saved.segments);
     this.summary.set([]);
     this.pending.set('');
@@ -227,10 +233,7 @@ export class SessionStore {
     const generation = this.generation;
     this.summarising.set(true);
     try {
-      // Whichever Whisper is loaded will do: the embedder only needs its worker. Going through
-      // ready() after the model picker changed would download a new Whisper first.
-      const { asr } = this.host.current() ?? (await this.host.ready());
-      const vectors = await asr.embed(segments.map((segment) => segment.text));
+      const vectors = await this.host.embed(segments.map((segment) => segment.text));
       if (generation !== this.generation) return;
 
       const picked = pickKeyLines(

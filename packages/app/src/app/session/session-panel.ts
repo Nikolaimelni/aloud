@@ -47,6 +47,9 @@ const SOURCES: readonly SourceOption[] = [
   },
 ];
 
+/** Seconds. A typed value gets past an input's min and max, so setStep clamps to these too. */
+const STEP_RANGE = { min: 0.5, max: 10 } as const;
+
 @Component({
   selector: 'aloud-session',
   imports: [LevelMeter, TranscriptView],
@@ -62,6 +65,7 @@ export class SessionPanel {
   protected readonly sources = SOURCES;
   protected readonly sizes = WHISPER_SIZES;
   protected readonly precisions = PRECISIONS;
+  protected readonly stepRange = STEP_RANGE;
   protected readonly languageNames = LANGUAGE_NAMES;
   protected readonly playhead = signal(0);
 
@@ -154,8 +158,13 @@ export class SessionPanel {
   }
 
   protected setStep(event: Event): void {
-    const step = Number(value(event));
-    if (Number.isFinite(step) && step > 0) this.store.windowStep.set(step);
+    const input = event.target as HTMLInputElement;
+    const step = Number(input.value);
+    if (input.value.trim() !== '' && Number.isFinite(step)) {
+      this.store.windowStep.set(Math.min(STEP_RANGE.max, Math.max(STEP_RANGE.min, step)));
+    }
+    // The binding only redraws on a change, so a clamp back to the same value would not show.
+    input.value = String(this.store.windowStep());
   }
 
   protected setSpeed(event: Event): void {

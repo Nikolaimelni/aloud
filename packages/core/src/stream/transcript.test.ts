@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, highlight, localStamp, toMarkdown, toSegments } from './transcript';
+import { clock, contains, highlight, localStamp, toMarkdown, toSegments } from './transcript';
 import type { Word } from './stabilize';
 
 function word(text: string, start: number, end: number): Word {
@@ -123,5 +123,29 @@ describe('highlight', () => {
 
   it('says nothing matched rather than inventing an empty part', () => {
     expect(highlight('nothing here', 'friday')).toEqual([{ text: 'nothing here', hit: false }]);
+  });
+
+  it('stays on the right letters after one that lowercases to two', () => {
+    expect(highlight('İstanbul İzmir', 'zmir')).toEqual([
+      { text: 'İstanbul İ', hit: false },
+      { text: 'zmir', hit: true },
+    ]);
+  });
+
+  it('searches for punctuation as written', () => {
+    expect(highlight('about 5 (approx.)', '(approx.)')).toEqual([
+      { text: 'about 5 ', hit: false },
+      { text: '(approx.)', hit: true },
+    ]);
+  });
+});
+
+describe('contains', () => {
+  it('agrees with the highlighting', () => {
+    expect(contains('Friday it is', 'FRIDAY')).toBe(true);
+    expect(contains('Привет, мир', 'МИР')).toBe(true);
+    expect(contains('a+b', '+')).toBe(true);
+    expect(contains('nothing here', 'friday')).toBe(false);
+    expect(contains('anything', '')).toBe(true);
   });
 });
