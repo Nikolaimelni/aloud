@@ -8,7 +8,8 @@ const PORT = 4400;
 
 /**
  * The headers Cloudflare Pages sends, read out of the `_headers` that ships with the build, so
- * the thing under test is the thing that ships, CSP included. Only the `/*` block is used.
+ * the thing under test is the thing that ships, CSP included. Every indented header line is
+ * taken, which is right only while `/*` is the one block in the file.
  */
 async function shippedHeaders(): Promise<Record<string, string>> {
   const text = await readFile(`${ROOT}/_headers`, 'utf8');

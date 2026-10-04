@@ -86,6 +86,9 @@ const NUMBERS: Record<string, string> = {
   тысяча: '1000',
 };
 
+/** Looked up in a Map: indexing the objects, "constructor" would find Object's own. */
+const REPLACEMENTS = new Map([...Object.entries(SPELLED_OUT), ...Object.entries(NUMBERS)]);
+
 export function normalise(text: string): string[] {
   return text
     .toLowerCase()
@@ -93,5 +96,5 @@ export function normalise(text: string): string[] {
     .replace(/[^\p{L}\p{N}\s']/gu, ' ')
     .split(/\s+/)
     .filter(Boolean)
-    .map((word) => SPELLED_OUT[word] ?? NUMBERS[word] ?? word);
+    .map((word) => REPLACEMENTS.get(word) ?? word);
 }

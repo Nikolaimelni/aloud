@@ -35,6 +35,10 @@ describe('normalise', () => {
       'john',
     ]);
   });
+
+  it('leaves a word alone that happens to name an object property', () => {
+    expect(normalise('a constructor')).toEqual(['a', 'constructor']);
+  });
 });
 
 describe('wordErrorRate', () => {
