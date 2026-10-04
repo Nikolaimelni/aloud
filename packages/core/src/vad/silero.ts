@@ -1,6 +1,7 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { AloudError } from '../errors';
 import { retry } from '../retry';
+import { fetchUnlessStalled } from '../stall';
 import { TARGET_SAMPLE_RATE } from '../audio/source';
 
 /** Silero v5 reads 512 new samples at 16 kHz per call. */
@@ -69,7 +70,7 @@ export class SileroVad {
 
 function download(url: string): Promise<Uint8Array> {
   return retry(async () => {
-    const response = await fetch(url);
+    const response = await fetchUnlessStalled(url);
     if (!response.ok) {
       throw new Error(`the weights came back ${response.status}`);
     }

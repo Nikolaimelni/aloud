@@ -104,7 +104,14 @@ export class WhisperEngine {
 export function serveRuntimeFrom(base: string): void {
   const wasm = env.backends.onnx.wasm;
   const paths = wasm?.wasmPaths;
-  if (!wasm || !paths || typeof paths === 'string' || paths instanceof URL) return;
+  // Anything else would leave onnxruntime on jsDelivr, where the CSP blocks it with an error
+  // that points nowhere near here.
+  if (!wasm || !paths || typeof paths === 'string' || paths instanceof URL) {
+    throw new AloudError(
+      'model-load-failed',
+      'transformers.js no longer names the onnxruntime files one by one, so they cannot be served from this site',
+    );
+  }
 
   wasm.wasmPaths = {
     ...(paths.mjs ? { mjs: new URL(fileName(paths.mjs), base).href } : {}),

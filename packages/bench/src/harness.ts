@@ -137,7 +137,8 @@ async function fetchFixture(url: string): Promise<ArrayBuffer> {
   try {
     return await retry(
       async () => {
-        const response = await fetch(url);
+        // A stalled connection never throws on its own, and would eat the whole run timeout.
+        const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
         if (!response.ok) throw new Error(`fixture came back ${response.status}`);
         return response.arrayBuffer();
       },

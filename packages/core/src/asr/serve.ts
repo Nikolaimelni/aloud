@@ -1,4 +1,7 @@
+import { env } from '@huggingface/transformers';
 import { AloudError, unwrap } from '../errors';
+import { queued } from '../queue';
+import { fetchUnlessStalled } from '../stall';
 import { Embedder } from '../summary/embed';
 import { serveRuntimeFrom, WhisperEngine } from './engine';
 import type { AsrEvent, AsrRequest } from './protocol';
@@ -10,10 +13,15 @@ import type { AsrEvent, AsrRequest } from './protocol';
 export function createAsrHandler(
   post: (event: AsrEvent) => void,
 ): (request: AsrRequest) => Promise<void> {
+  // Both models download through transformers.js, and retry() around them only helps if a
+  // stalled connection turns into an error.
+  env.fetch = fetchUnlessStalled;
   const engine = new WhisperEngine();
   const embedder = new Embedder();
 
-  return async (request) => {
+  // One onnxruntime per worker: a transcribe that overtook its load, or an embed racing a
+  // pass, would share it between two callers.
+  return queued(async (request) => {
     const started = performance.now();
 
     try {
@@ -40,13 +48,19 @@ export function createAsrHandler(
         return;
       }
 
-      const transcript = await engine.transcribe(request.samples, request.options);
-      post({
-        kind: 'transcript',
-        id: request.id,
-        transcript,
-        elapsedMs: performance.now() - started,
-      });
+      if (request.kind === 'transcribe') {
+        const transcript = await engine.transcribe(request.samples, request.options);
+        post({
+          kind: 'transcript',
+          id: request.id,
+          transcript,
+          elapsedMs: performance.now() - started,
+        });
+        return;
+      }
+
+      // The types stop at postMessage, so anything else is refused rather than guessed at.
+      throw new AloudError('inference-failed', 'the worker was sent a request it does not know');
     } catch (error) {
       post({
         kind: 'failed',
@@ -55,5 +69,5 @@ export function createAsrHandler(
         message: unwrap(error),
       });
     }
-  };
+  });
 }
