@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { WHISPER_MODELS } from '@aloud/core/asr/models';
+import { MODELS } from '@aloud/core/asr/models';
 import { microphone, tabAudio, type MediaCapture } from '@aloud/core/audio/capture';
 import { levelOf } from '@aloud/core/audio/level';
 import { Recorder } from '@aloud/core/audio/recorder';
@@ -7,7 +7,7 @@ import { tapFrames } from '@aloud/core/audio/tap';
 import { WavSource } from '@aloud/core/audio/wav-source';
 import { AloudError } from '@aloud/core/errors';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
-import { contains, localStamp, toMarkdown, type Segment } from '@aloud/core/stream/transcript';
+import { localStamp, matcher, toMarkdown, type Segment } from '@aloud/core/stream/transcript';
 import { pickKeyLines } from '@aloud/core/summary/select';
 import type { AudioFrame, AudioSource } from '@aloud/core/audio/source';
 import { Archive } from '../history/archive';
@@ -37,9 +37,6 @@ export class SessionStore {
   private levelHistory: number[] = [];
   private startedAt = new Date();
   private sessionId: string = crypto.randomUUID();
-  /** What the session on screen was made with. The controls may have moved on since. */
-  private sessionLanguage = '';
-  private sessionTranslated = false;
   /**
    * Bumped whenever the session on screen is stopped or replaced. Anything that awaited across
    * a bump, a model download or a summary, compares it and drops what it was about to do.
@@ -64,8 +61,7 @@ export class SessionStore {
   /** The browser suspended the audio graph, which on a phone means the tab went away. */
   readonly paused = signal(false);
 
-  readonly translate = signal(false);
-  readonly windowStep = signal(1.5);
+  readonly windowStep = signal(0.6);
   readonly fasterThanReal = signal(true);
 
   /** Object URL of the recording, once there is one to play. */
@@ -96,8 +92,8 @@ export class SessionStore {
   );
 
   readonly matches = computed(() => {
-    const needle = this.query().trim();
-    return this.segments().filter((segment) => contains(segment.text, needle));
+    const matches = matcher(this.query().trim());
+    return this.segments().filter((segment) => matches(segment.text));
   });
 
   constructor() {
@@ -110,15 +106,7 @@ export class SessionStore {
   async start(file?: File): Promise<void> {
     if (this.listening()) return;
 
-    // Checked before anything is cleared, so a typo or a huge file does not cost the transcript
-    // on screen.
-    const language = this.settings.languageCode();
-    if (language === null) {
-      this.error.set(
-        `Whisper does not know "${this.settings.language().trim()}". Leave the language empty to let it guess, or give a code such as ru or a name such as russian.`,
-      );
-      return;
-    }
+    // Checked before anything is cleared, so a huge file does not cost the transcript on screen.
     if (file && file.size > MAX_FILE_BYTES) {
       this.error.set(
         `That file is ${Math.round(file.size / 1_000_000)} MB and the limit is ${MAX_FILE_BYTES / 1_000_000} MB. Save it as mono 16 kHz first: that is all the model hears, and an hour of it is 115 MB.`,
@@ -138,8 +126,6 @@ export class SessionStore {
     this.computeMs.set(0);
     this.startedAt = new Date();
     this.sessionId = crypto.randomUUID();
-    this.sessionLanguage = language;
-    this.sessionTranslated = this.translate();
     this.recorder = new Recorder();
     this.paused.set(false);
     this.releaseRecording();
@@ -154,10 +140,6 @@ export class SessionStore {
 
       const transcriber = new StreamingTranscriber(source, vad, asr, {
         segmenter: { stepSeconds: this.windowStep() },
-        transcribe: {
-          task: this.sessionTranslated ? 'translate' : 'transcribe',
-          ...(this.sessionLanguage ? { language: this.sessionLanguage } : {}),
-        },
         onUpdate: (update) => {
           this.segments.set(update.confirmed);
           this.pending.set(update.pending);
@@ -211,8 +193,6 @@ export class SessionStore {
     this.query.set('');
     this.startedAt = new Date(saved.startedAt);
     this.sessionId = saved.id;
-    this.sessionLanguage = saved.language;
-    this.sessionTranslated = saved.translated;
     this.passes.set(0);
     if (saved.audio) {
       this.recording.set(URL.createObjectURL(saved.audio));
@@ -236,7 +216,8 @@ export class SessionStore {
       this.summary.set(picked.map((index) => segments[index]!));
       this.summaryLoaded.set(true);
     } catch (cause) {
-      this.error.set(explain(cause));
+      // Starting a session can dispose the worker mid-summary, and that is not news to anyone.
+      if (generation === this.generation) this.error.set(explain(cause));
     } finally {
       this.summarising.set(false);
     }
@@ -246,9 +227,7 @@ export class SessionStore {
     return toMarkdown(this.segments(), {
       title: 'Aloud transcript',
       recordedAt: this.startedAt,
-      translated: this.sessionTranslated,
       highlights: this.summary(),
-      ...(this.sessionLanguage ? { language: this.sessionLanguage } : {}),
     });
   }
 
@@ -274,9 +253,7 @@ export class SessionStore {
         startedAt: this.startedAt.getTime(),
         seconds: this.recorder.seconds,
         bytes: audio.size,
-        translated: this.sessionTranslated,
-        language: this.sessionLanguage,
-        model: WHISPER_MODELS[this.settings.model()].id,
+        model: MODELS[this.settings.model()].id,
         segments: [...this.segments()],
       },
       audio,

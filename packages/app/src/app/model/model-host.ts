@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import type { AsrDevice, ModelProgress } from '@aloud/core/asr/protocol';
+import type { ModelProgress } from '@aloud/core/asr/protocol';
 import { AsrClient } from '@aloud/core/asr/worker-client';
 import { loadEngines } from '@aloud/core/engines';
 import type { VadClient } from '@aloud/core/vad/worker-client';
@@ -28,14 +28,13 @@ export class ModelHost {
   private readonly downloads = new Map<string, ModelProgress>();
 
   private loaded: Loaded | null = null;
-  /** An ASR worker with no Whisper in it, for a summary asked for before anything loaded. */
+  /** An ASR worker with no speech model in it, for a summary asked for before anything loaded. */
   private embedder: AsrClient | null = null;
   private pending: { readonly key: string; readonly loaded: Promise<Loaded> } | null = null;
   private readonly loadedKey = signal<string | null>(null);
 
   readonly loading = signal(false);
   readonly download = signal<{ loaded: number; total: number } | null>(null);
-  readonly device = signal<AsrDevice | null>(null);
   readonly loadMs = signal(0);
 
   /** False until the weights for the current settings are in the browser. */
@@ -43,7 +42,7 @@ export class ModelHost {
 
   /**
    * Sentence vectors for the summary, from whichever ASR worker is up. Never through ready():
-   * a reopened session needs the embedder, not a Whisper download for whatever the model
+   * a reopened session needs the embedder, not a model download for whatever the model
    * picker says now.
    */
   embed(texts: readonly string[]): Promise<Float32Array[]> {
@@ -99,7 +98,6 @@ export class ModelHost {
 
       this.loaded = { asr: engines.asr, vad: engines.vad };
       this.loadedKey.set(key);
-      this.device.set(engines.device);
       this.loadMs.set(engines.elapsedMs);
       return this.loaded;
     } finally {

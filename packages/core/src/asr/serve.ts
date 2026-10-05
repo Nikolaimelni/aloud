@@ -3,7 +3,7 @@ import { AloudError, unwrap } from '../errors';
 import { queued } from '../queue';
 import { fetchUnlessStalled } from '../stall';
 import { Embedder } from '../summary/embed';
-import { serveRuntimeFrom, WhisperEngine } from './engine';
+import { serveRuntimeFrom, SpeechEngine } from './engine';
 import type { AsrEvent, AsrRequest } from './protocol';
 
 /**
@@ -16,7 +16,7 @@ export function createAsrHandler(
   // Both models download through transformers.js, and retry() around them only helps if a
   // stalled connection turns into an error.
   env.fetch = fetchUnlessStalled;
-  const engine = new WhisperEngine();
+  const engine = new SpeechEngine();
   const embedder = new Embedder();
 
   // One onnxruntime per worker: a transcribe that overtook its load, or an embed racing a
@@ -49,7 +49,7 @@ export function createAsrHandler(
       }
 
       if (request.kind === 'transcribe') {
-        const transcript = await engine.transcribe(request.samples, request.options);
+        const transcript = await engine.transcribe(request.samples);
         post({
           kind: 'transcript',
           id: request.id,

@@ -1,6 +1,6 @@
 /**
- * Whisper writes "Mr." where LibriSpeech references write "MISTER", and "50" where a Russian
- * reference writes "пятьдесят". Both were counted as errors until this existed, and on the
+ * The model writes "Mr." where LibriSpeech references write "MISTER", and "50" where a
+ * reference spells the number out. Both were counted as errors until this existed, and on the
  * seventeen word LibriSpeech clip one of them is six percent. A real evaluation uses the full
  * Whisper text normaliser; this is the short version, and the numbers it produces are only
  * comparable against each other.
@@ -18,8 +18,7 @@ const SPELLED_OUT: Record<string, string> = {
 
 /**
  * Said out loud a number is a word; written down by the model it is a digit. Both sides go
- * through the same table, so the only risk is being consistently odd. Russian numerals
- * decline and only the nominative is here, which covers how people usually say a round number.
+ * through the same table, so the only risk is being consistently odd.
  */
 const NUMBERS: Record<string, string> = {
   zero: '0',
@@ -52,38 +51,6 @@ const NUMBERS: Record<string, string> = {
   ninety: '90',
   hundred: '100',
   thousand: '1000',
-  ноль: '0',
-  один: '1',
-  одна: '1',
-  два: '2',
-  две: '2',
-  три: '3',
-  четыре: '4',
-  пять: '5',
-  шесть: '6',
-  семь: '7',
-  восемь: '8',
-  девять: '9',
-  десять: '10',
-  одиннадцать: '11',
-  двенадцать: '12',
-  тринадцать: '13',
-  четырнадцать: '14',
-  пятнадцать: '15',
-  шестнадцать: '16',
-  семнадцать: '17',
-  восемнадцать: '18',
-  девятнадцать: '19',
-  двадцать: '20',
-  тридцать: '30',
-  сорок: '40',
-  пятьдесят: '50',
-  шестьдесят: '60',
-  семьдесят: '70',
-  восемьдесят: '80',
-  девяносто: '90',
-  сто: '100',
-  тысяча: '1000',
 };
 
 /** Looked up in a Map: indexing the objects, "constructor" would find Object's own. */
@@ -92,7 +59,6 @@ const REPLACEMENTS = new Map([...Object.entries(SPELLED_OUT), ...Object.entries(
 export function normalise(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/ё/g, 'е')
     .replace(/[^\p{L}\p{N}\s']/gu, ' ')
     .split(/\s+/)
     .filter(Boolean)

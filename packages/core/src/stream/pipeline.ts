@@ -1,5 +1,5 @@
-import type { TranscribeOptions } from '../asr/protocol';
 import type { AsrClient } from '../asr/worker-client';
+import { AloudError } from '../errors';
 import type { AudioFrame, AudioSource } from '../audio/source';
 import type { VadClient } from '../vad/worker-client';
 import { trimLoop } from './repeats';
@@ -29,7 +29,6 @@ export type StreamUpdate = {
 
 export type StreamingOptions = {
   readonly segmenter?: SegmenterOptions;
-  readonly transcribe?: TranscribeOptions;
   /**
    * Once this many seconds of lines are waiting, a source that can wait is held until the
    * pass in flight finishes. A live one never is: holding it would only hide the backlog in a
@@ -111,7 +110,7 @@ export class StreamingTranscriber {
           await this.inFlight;
         }
       })
-      .catch((error: unknown) => this.options.onError?.(error));
+      .catch((error: unknown) => this.fail(error));
 
     return this.frames;
   }
@@ -124,8 +123,16 @@ export class StreamingTranscriber {
     const utterance = final ?? (this.source.live ? this.segmenter.takeGuess() : null);
     if (!utterance) return;
 
-    this.inFlight = this.run({ utterance, final: final !== null })
-      .catch((error: unknown) => this.options.onError?.(error))
+    const pass = { utterance, final: final !== null };
+    this.inFlight = this.run(pass)
+      .catch((error: unknown) => {
+        // The line is lost either way, and its guess would otherwise stay up as if it were coming.
+        if (pass.final && this.guessFor === utterance.id) {
+          this.guess = '';
+          this.emit();
+        }
+        this.fail(error);
+      })
       .finally(() => {
         this.inFlight = null;
         this.inFlightSeconds = 0;
@@ -136,9 +143,9 @@ export class StreamingTranscriber {
   private async run({ utterance, final }: Pass): Promise<void> {
     if (final) this.inFlightSeconds = utterance.end - utterance.start;
 
-    const started = performance.now();
-    const result = await this.asr.transcribe(utterance.samples, { ...this.options.transcribe });
-    this.computeMs += performance.now() - started;
+    const result = await this.asr.transcribe(utterance.samples);
+    // The worker's own figure: timed here it would include the wait behind a summary request.
+    this.computeMs += result.elapsedMs;
     this.passes++;
 
     const text = trimLoop(result.transcript.text);
@@ -167,6 +174,17 @@ export class StreamingTranscriber {
     this.guess = '';
     this.emit();
     this.done();
+  }
+
+  /**
+   * A failed pass costs one line, so the session goes on. A dead worker fails every frame after
+   * it, and a session that keeps recording with no text coming is worse than one that ends.
+   */
+  private fail(error: unknown): void {
+    this.options.onError?.(error);
+    if (error instanceof AloudError && error.code === 'worker-died') {
+      void this.source.stop();
+    }
   }
 
   private emit(): void {

@@ -9,8 +9,12 @@ overrides:
   brace-expansion@5: ^5.0.12
   fast-uri@3: ^3.1.8
   ip-address@10: ^10.7.1
+  '@modelcontextprotocol/sdk@1': ^1.31.0
   piscina@5: ^5.3.2
+  proxy-addr@2: ^2.0.8
   sharp@0.34: ^0.35.4
+  source-map-js@1: ^1.2.2
+  onnxruntime-web: 1.30.0
 
 importers:
 
@@ -62,8 +66,8 @@ importers:
         specifier: ^8.0.3
         version: 8.0.3
       onnxruntime-web:
-        specifier: 1.26.0-dev.20260416-b7804b056c
-        version: 1.26.0-dev.20260416-b7804b056c
+        specifier: 1.30.0
+        version: 1.30.0
       rxjs:
         specifier: ~7.8.0
         version: 7.8.2
@@ -118,8 +122,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0(@types/node@22.20.2)
       onnxruntime-web:
-        specifier: 1.26.0-dev.20260416-b7804b056c
-        version: 1.26.0-dev.20260416-b7804b056c
+        specifier: 1.30.0
+        version: 1.30.0
     devDependencies:
       typescript:
         specifier: ~6.0.3
@@ -1070,8 +1074,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@modelcontextprotocol/sdk@1.30.0':
-    resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
+  '@modelcontextprotocol/sdk@1.32.1':
+    resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -2674,18 +2678,18 @@ packages:
     resolution: {integrity: sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ==}
     engines: {node: '>=18'}
 
-  onnxruntime-common@1.24.0-dev.20251116-b39e144322:
-    resolution: {integrity: sha512-BOoomdHYmNRL5r4iQ4bMvsl2t0/hzVQ3OM3PHD0gxeXu1PmggqBv3puZicEUVOA3AtHHYmqZtjMj9FOfGrATTw==}
-
   onnxruntime-common@1.24.3:
     resolution: {integrity: sha512-GeuPZO6U/LBJXvwdaqHbuUmoXiEdeCjWi/EG7Y1HNnDwJYuk6WUbNXpF6luSUY8yASul3cmUlLGrCCL1ZgVXqA==}
+
+  onnxruntime-common@1.30.0:
+    resolution: {integrity: sha512-7fdVWjAID1dVhH/G8qK3APARunV4VkBFoCQAP7qp4Wkab0mrorvmc+sqiT+mKXOzDqdjN5j+/Z9nb4gzNPWcyA==}
 
   onnxruntime-node@1.24.3:
     resolution: {integrity: sha512-JH7+czbc8ALA819vlTgcV+Q214/+VjGeBHDjX81+ZCD0PCVCIFGFNtT0V4sXG/1JXypKPgScQcB3ij/hk3YnTg==}
     os: [win32, darwin, linux]
 
-  onnxruntime-web@1.26.0-dev.20260416-b7804b056c:
-    resolution: {integrity: sha512-MD6Ss4GSpQBo6zqoJzyT9LRbKYs7x/JVN23FT24EcEvlqF4VuzPOeH6X38orZPKHQDbprn7K+SBpu0/mj2CQiw==}
+  onnxruntime-web@1.30.0:
+    resolution: {integrity: sha512-q0y+JrrtukXSzsBWEMccVfqX25LRmosXHF+CaRJmg8pZClzcV7svNc4rKY3jL02Vb7QmRMDs1SigqR4CXAfKYQ==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -2799,8 +2803,8 @@ packages:
     resolution: {integrity: sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==}
     engines: {node: '>=12.0.0'}
 
-  proxy-addr@2.0.7:
-    resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
+  proxy-addr@2.0.8:
+    resolution: {integrity: sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ==}
     engines: {node: '>= 0.10'}
 
   proxy-agent-negotiate@1.1.0:
@@ -2947,8 +2951,8 @@ packages:
     resolution: {integrity: sha512-SO/3iYL5S3W57LLEniscOGPZgOqZUPCx6d3dB+52B80yJ0XstzsC/eV8gnA4tM3MHDrKz+OCFSLNjswdSC+/bA==}
     engines: {node: '>=22'}
 
-  source-map-js@1.2.1:
-    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
+  source-map-js@1.2.2:
+    resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
 
   source-map-support@0.5.21:
@@ -3428,7 +3432,7 @@ snapshots:
       '@angular-devkit/schematics': 22.1.8(chokidar@5.0.0)
       '@inquirer/prompts': 8.5.2(@types/node@22.20.2)
       '@listr2/prompt-adapter-inquirer': 4.2.5(@inquirer/prompts@8.5.2(@types/node@22.20.2))(@types/node@22.20.2)(listr2@11.0.0)
-      '@modelcontextprotocol/sdk': 1.30.0(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.32.1(zod@4.4.3)
       '@schematics/angular': 22.1.8(chokidar@5.0.0)
       jsonc-parser: 3.3.1
       listr2: 11.0.0
@@ -3818,7 +3822,7 @@ snapshots:
       '@huggingface/jinja': 0.5.10
       '@huggingface/tokenizers': 0.1.3
       onnxruntime-node: 1.24.3
-      onnxruntime-web: 1.26.0-dev.20260416-b7804b056c
+      onnxruntime-web: 1.30.0
       sharp: 0.35.5(@types/node@22.20.2)
     transitivePeerDependencies:
       - '@types/node'
@@ -4139,7 +4143,7 @@ snapshots:
   '@lmdb/lmdb-win32-x64@3.5.6':
     optional: true
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.4.3)':
+  '@modelcontextprotocol/sdk@1.32.1(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.7)
       ajv: 8.20.0
@@ -4897,7 +4901,7 @@ snapshots:
   css-tree@3.2.1:
     dependencies:
       mdn-data: 2.27.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
     optional: true
 
   css-what@7.0.0: {}
@@ -5145,7 +5149,7 @@ snapshots:
       on-finished: 2.4.1
       once: 1.4.0
       parseurl: 1.3.3
-      proxy-addr: 2.0.7
+      proxy-addr: 2.0.8
       qs: 6.16.0
       range-parser: 1.3.0
       router: 2.2.0
@@ -5642,9 +5646,9 @@ snapshots:
     dependencies:
       mimic-function: 5.0.1
 
-  onnxruntime-common@1.24.0-dev.20251116-b39e144322: {}
-
   onnxruntime-common@1.24.3: {}
+
+  onnxruntime-common@1.30.0: {}
 
   onnxruntime-node@1.24.3:
     dependencies:
@@ -5652,12 +5656,12 @@ snapshots:
       global-agent: 3.0.0
       onnxruntime-common: 1.24.3
 
-  onnxruntime-web@1.26.0-dev.20260416-b7804b056c:
+  onnxruntime-web@1.30.0:
     dependencies:
       flatbuffers: 25.9.23
       guid-typescript: 1.0.9
       long: 5.3.2
-      onnxruntime-common: 1.24.0-dev.20251116-b39e144322
+      onnxruntime-common: 1.30.0
       platform: 1.3.6
       protobufjs: 7.6.6
 
@@ -5771,7 +5775,7 @@ snapshots:
     dependencies:
       nanoid: 3.3.19
       picocolors: 1.1.1
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
 
   prelude-ls@1.2.1: {}
 
@@ -5793,7 +5797,7 @@ snapshots:
       '@types/node': 22.20.2
       long: 5.3.2
 
-  proxy-addr@2.0.7:
+  proxy-addr@2.0.8:
     dependencies:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
@@ -5902,7 +5906,7 @@ snapshots:
     dependencies:
       chokidar: 5.0.0
       immutable: 5.1.9
-      source-map-js: 1.2.1
+      source-map-js: 1.2.2
     optionalDependencies:
       '@parcel/watcher': 2.6.0
 
@@ -6022,7 +6026,7 @@ snapshots:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
 
-  source-map-js@1.2.1: {}
+  source-map-js@1.2.2: {}
 
   source-map-support@0.5.21:
     dependencies:

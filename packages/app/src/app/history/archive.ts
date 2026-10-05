@@ -16,8 +16,6 @@ const summary = z.object({
   startedAt: z.number(),
   seconds: z.number(),
   bytes: z.number(),
-  translated: z.boolean(),
-  language: z.string(),
   model: z.string(),
   segments: z.array(segment),
 });

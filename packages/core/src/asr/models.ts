@@ -1,34 +1,28 @@
 /**
- * The `_timestamped` exports carry cross-attentions, which is the only way to get a time per
- * word rather than per phrase, and the stabiliser needs word times to know how much audio it
- * can stop carrying.
+ * Moonshine rather than Whisper: it is made for live English, it reads a two-second line in a
+ * fraction of what Whisper spends padding every window to thirty seconds, and at q8 tiny is
+ * 32 MB against whisper-base's 149. It knows English only, which is all this app does.
  *
  * Revisions are pinned because the numbers in the README were measured on these weights and
- * `main` can move under them. Sizes are megabytes at q4, measured from the repos; the quantised
- * decoder is most of it, which is why tiny is not the saving it sounds like.
+ * `main` can move under them. Sizes are megabytes at q8, encoder, decoder and tokenizer.
  */
-export const WHISPER_MODELS = {
+export const MODELS = {
   tiny: {
-    id: 'onnx-community/whisper-tiny_timestamped',
-    revision: '517244293732ee2d58139af5814231b7e6830a0d',
-    sizeMb: 96,
+    id: 'onnx-community/moonshine-tiny-ONNX',
+    revision: 'a6da1241cd305dcd64eab1edbd615f2bb9aabb95',
+    sizeMb: 32,
   },
   base: {
-    id: 'onnx-community/whisper-base_timestamped',
-    revision: '608c49e61301901684bc36cac8f74b95ff6b5a8e',
-    sizeMb: 143,
-  },
-  small: {
-    id: 'onnx-community/whisper-small_timestamped',
-    revision: '65caa70f294b46e1c33ff820aae6b16d048ab818',
-    sizeMb: 300,
+    id: 'onnx-community/moonshine-base-ONNX',
+    revision: 'b1e9b6aae3c3c7298f10c3798393fdf38e8fbbad',
+    sizeMb: 67,
   },
 } as const;
 
-export type WhisperSize = keyof typeof WHISPER_MODELS;
+export type ModelSize = keyof typeof MODELS;
 
-export const WHISPER_SIZES = Object.keys(WHISPER_MODELS) as WhisperSize[];
+export const MODEL_SIZES = Object.keys(MODELS) as ModelSize[];
 
-export function isWhisperSize(value: string): value is WhisperSize {
-  return Object.hasOwn(WHISPER_MODELS, value);
+export function isModelSize(value: string): value is ModelSize {
+  return Object.hasOwn(MODELS, value);
 }

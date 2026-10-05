@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, contains, highlight, localStamp, toMarkdown } from './transcript';
+import { clock, highlight, localStamp, matcher, toMarkdown } from './transcript';
 
 describe('clock', () => {
   it('counts in minutes until it has to count in hours', () => {
@@ -29,11 +29,6 @@ describe('toMarkdown', () => {
     expect(markdown).toContain('**00:00** So the deploy goes out Wednesday.');
     expect(markdown).toContain('**00:06** And we roll back by hand if it breaks.');
     expect(markdown.endsWith('\n')).toBe(true);
-  });
-
-  it('says when the text has been translated', () => {
-    const markdown = toMarkdown([{ start: 0, end: 1, text: 'Hello.' }], { translated: true });
-    expect(markdown).toContain('Translated to English');
   });
 });
 
@@ -93,12 +88,17 @@ describe('highlight', () => {
   });
 });
 
-describe('contains', () => {
+describe('matcher', () => {
   it('agrees with the highlighting', () => {
-    expect(contains('Friday it is', 'FRIDAY')).toBe(true);
-    expect(contains('Привет, мир', 'МИР')).toBe(true);
-    expect(contains('a+b', '+')).toBe(true);
-    expect(contains('nothing here', 'friday')).toBe(false);
-    expect(contains('anything', '')).toBe(true);
+    expect(matcher('FRIDAY')('Friday it is')).toBe(true);
+    expect(matcher('МИР')('Привет, мир')).toBe(true);
+    expect(matcher('+')('a+b')).toBe(true);
+    expect(matcher('friday')('nothing here')).toBe(false);
+    expect(matcher('')('anything')).toBe(true);
+  });
+
+  it('matches every line it is given, not every other one', () => {
+    const matches = matcher('friday');
+    expect(['friday', 'friday', 'friday'].map((text) => matches(text))).toEqual([true, true, true]);
   });
 });

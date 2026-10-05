@@ -18,7 +18,7 @@ export class VadClient {
   private readonly channel: WorkerChannel<VadRequest, VadEvent>;
 
   constructor(worker: Worker) {
-    this.channel = new WorkerChannel(worker, 'vad-failed');
+    this.channel = new WorkerChannel(worker, 'voice detection');
   }
 
   async load(options: VadLoadOptions = {}): Promise<number> {
@@ -53,6 +53,6 @@ export class VadClient {
   }
 
   dispose(): void {
-    this.channel.dispose('vad-failed');
+    this.channel.dispose();
   }
 }

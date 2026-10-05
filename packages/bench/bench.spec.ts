@@ -27,10 +27,8 @@ type Row = {
 };
 
 /**
- * Streaming runs play at real speed, so they cost what they are worth in seconds and only a
- * couple of fixtures get one. The minute of English is for the latency percentiles; the short
- * Russian clip is there because whisper-tiny runs away into a decoder loop on it, and the
- * difference between the two modes is the value of the stabiliser's loop trimming.
+ * Live runs play at real speed, so they cost what they are worth in seconds and only the
+ * minute of English gets one, for the latency percentiles.
  */
 const STREAM_FIXTURES = new Set(env.BENCH_STREAM);
 
@@ -74,19 +72,17 @@ test('measure', async ({ page }) => {
       for (const device of devices) {
         for (const fixture of fixtures) {
           const modes: RunConfig['mode'][] = STREAM_FIXTURES.has(fixture.id)
-            ? ['oneshot', 'stream']
-            : ['oneshot'];
+            ? ['file', 'live']
+            : ['file'];
 
           for (const mode of modes) {
             const config: RunConfig = {
               url: fixture.url,
               model,
               device,
-              dtype: 'q4',
+              dtype: env.BENCH_DTYPE,
               stepSeconds: env.BENCH_STEP,
               mode,
-              realtime: mode === 'stream',
-              ...(fixture.language ? { language: fixture.language } : {}),
             };
 
             let result: RunResult;
@@ -180,9 +176,9 @@ function markdown(rows: readonly Row[], isolated: boolean): string {
   const lines = [
     '# Benchmark',
     '',
-    `Run ${new Date().toISOString().slice(0, 10)}. Cross-origin isolated: ${isolated ? 'yes' : 'no'}.`,
-    'One pass over the whole file unless the mode says stream, in which case the file is played',
-    'at real speed through the live pipeline.',
+    `Run ${new Date().toISOString().slice(0, 10)}, ${env.BENCH_DTYPE} weights. Cross-origin isolated: ${isolated ? 'yes' : 'no'}.`,
+    'Every file goes through the same pipeline as the app, as fast as it will go. The live mode',
+    'plays it at real speed instead, guesses and all, which is where the lag figures come from.',
     '',
     ...summary(rows),
     '## Every run',
@@ -215,8 +211,8 @@ function markdown(rows: readonly Row[], isolated: boolean): string {
  * Pooled across clips: total errors over total reference words, not the mean of the per-clip
  * rates. A fifteen word clip should not weigh the same as a sixty word one.
  *
- * One pass per clip only, and one row per backend. A streamed run of a clip is the same audio
- * again, and it costs several times more, so pooling it in counts the clip twice and drags the
+ * File runs only, one row per backend. A live run of a clip is the same audio again, and the
+ * guessing makes it cost several times more, so pooling it in counts the clip twice and drags the
  * mean cost up with it.
  */
 function summary(rows: readonly Row[]): string[] {
@@ -226,7 +222,7 @@ function summary(rows: readonly Row[]): string[] {
   >();
 
   for (const row of rows) {
-    if (row.error || row.mode !== 'oneshot' || row.wer === null || row.referenceWords === null) {
+    if (row.error || row.mode !== 'file' || row.wer === null || row.referenceWords === null) {
       continue;
     }
 

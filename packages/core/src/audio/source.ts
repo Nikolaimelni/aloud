@@ -1,4 +1,4 @@
-/** Everything downstream of capture assumes this rate. Whisper accepts nothing else. */
+/** Everything downstream of capture assumes this rate. Moonshine accepts nothing else. */
 export const TARGET_SAMPLE_RATE = 16_000;
 
 export type AudioFrame = {

@@ -21,11 +21,13 @@ type Pending<Reply> = {
 export class WorkerChannel<Request extends { readonly id: number }, Reply extends Message> {
   private nextId = 1;
   private readonly pending = new Map<number, Pending<Reply>>();
+  /** A dead worker never answers, so a request posted to it would wait forever. */
+  private dead: AloudError | null = null;
 
   private readonly worker: Worker;
 
   /** `unasked` gets whatever arrives without an id, such as download progress. */
-  constructor(worker: Worker, died: AloudErrorCode, unasked: (reply: Reply) => void = () => {}) {
+  constructor(worker: Worker, name: string, unasked: (reply: Reply) => void = () => {}) {
     this.worker = worker;
 
     worker.onmessage = (event: MessageEvent<Reply>) => {
@@ -44,12 +46,16 @@ export class WorkerChannel<Request extends { readonly id: number }, Reply extend
         pending.resolve(reply);
       }
     };
+    // Both handlers catch everything they do and answer with `failed`, so reaching this means
+    // the worker itself is broken: its module did not load, or it ran out of memory.
     worker.onerror = () => {
-      this.failAll(new AloudError(died, 'the worker died'));
+      this.failAll(new AloudError('worker-died', `the ${name} worker died`));
     };
   }
 
   request(build: (id: number) => Request, transfer: Transferable[] = []): Promise<Reply> {
+    if (this.dead) return Promise.reject(this.dead);
+
     const request = build(this.nextId++);
     return new Promise((resolve, reject) => {
       this.worker.postMessage(request, transfer);
@@ -57,12 +63,13 @@ export class WorkerChannel<Request extends { readonly id: number }, Reply extend
     });
   }
 
-  dispose(code: AloudErrorCode): void {
-    this.failAll(new AloudError(code, 'the client was disposed'));
+  dispose(): void {
+    this.failAll(new AloudError('worker-died', 'the client was disposed'));
     this.worker.terminate();
   }
 
-  private failAll(error: Error): void {
+  private failAll(error: AloudError): void {
+    this.dead = error;
     for (const pending of this.pending.values()) {
       pending.reject(error);
     }

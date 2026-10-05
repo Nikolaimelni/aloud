@@ -7,7 +7,6 @@ import type {
   AsrRequest,
   ModelProgress,
   Transcript,
-  TranscribeOptions,
 } from './protocol';
 
 export type AsrClientOptions = {
@@ -29,7 +28,7 @@ export class AsrClient {
   private readonly channel: WorkerChannel<AsrRequest, AsrEvent>;
 
   constructor(worker: Worker, options: AsrClientOptions = {}) {
-    this.channel = new WorkerChannel(worker, 'inference-failed', (event) => {
+    this.channel = new WorkerChannel(worker, 'speech', (event) => {
       if (event.kind === 'progress') options.onProgress?.(event.progress);
     });
   }
@@ -49,15 +48,12 @@ export class AsrClient {
   }
 
   /** The samples are transferred, not copied: the array is empty as soon as this is called. */
-  async transcribe(
-    samples: Float32Array,
-    options: TranscribeOptions = {},
-  ): Promise<TranscribeResult> {
+  async transcribe(samples: Float32Array): Promise<TranscribeResult> {
     const buffer = samples.buffer;
     const transfer = buffer instanceof ArrayBuffer ? [buffer] : [];
 
     const event = await this.channel.request(
-      (id) => ({ kind: 'transcribe', id, samples, options }),
+      (id) => ({ kind: 'transcribe', id, samples }),
       transfer,
     );
     if (event.kind !== 'transcript') {
@@ -66,7 +62,7 @@ export class AsrClient {
     return { transcript: event.transcript, elapsedMs: event.elapsedMs };
   }
 
-  /** Unit vectors, one per text, for the extractive summary. Whisper need not be loaded. */
+  /** Unit vectors, one per text, for the extractive summary. The speech model need not be loaded. */
   async embed(texts: readonly string[], runtimeUrl?: string): Promise<Float32Array[]> {
     const event = await this.channel.request((id) => ({
       kind: 'embed',
@@ -87,6 +83,6 @@ export class AsrClient {
   }
 
   dispose(): void {
-    this.channel.dispose('inference-failed');
+    this.channel.dispose();
   }
 }

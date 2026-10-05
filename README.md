@@ -1,8 +1,8 @@
 # Aloud
 
-Live speech transcription that runs entirely in the browser. The model is fetched once and
+Live speech transcription that runs entirely in the browser. A 32 MB model is fetched once and
 evaluated on your own machine, the audio never leaves the tab, and the transcript fills in
-while you are still talking.
+while you are still talking. English only.
 
 ![Confirmed text in black, the current guess in amber, and the meters underneath](docs/screenshot.png)
 
@@ -10,96 +10,47 @@ while you are still talking.
 
 Everything I could point at a work call wants the audio on someone else's server. That is a
 reasonable trade for accuracy, and a bad one for a standup where somebody mentions a customer
-by name. WebGPU and quantised Whisper make the other trade possible, and the point of the
-benchmark below is to say exactly what that trade costs: on English, very little; on Russian,
-more than I expected.
+by name. A small speech model on WebAssembly makes the other trade possible, and the point of
+the benchmark below is to say exactly what that trade costs.
 
 ## Numbers
 
-These come out of `pnpm bench`, which plays fixtures through the real pipeline in a real
-Chromium, scores the transcript against a reference where there is one, and writes a report.
-q4 weights on WASM with twelve threads, one pass over the whole file. The error rates come out
-identical on every run; the costs move, for reasons further down.
+These come out of `pnpm bench`, which plays fixtures through the same pipeline as the app in a
+real Chromium, scores the transcript against a reference where there is one, and writes a
+report. Moonshine at q8, on WASM with twelve threads.
 
-| Language | Model | Clips | Reference words | WER    | Median WER | Mean cost |
-| -------- | ----- | ----- | --------------- | ------ | ---------- | --------- |
-| English  | tiny  | 2     | 39              | 2.6%   | 2.3%       | 0.24      |
-| English  | base  | 2     | 39              | 0.0%   | 0.0%       | 0.48      |
-| English  | small | 2     | 39              | 0.0%   | 0.0%       | 1.73      |
-| Russian  | tiny  | 8     | 194             | 149.0% | 44.5%      | 0.57      |
-| Russian  | base  | 8     | 194             | 25.3%  | 18.9%      | 0.75      |
-| Russian  | small | 8     | 194             | 15.5%  | 13.7%      | 2.67      |
+| Model                           | Download | WER  | Cost, file | Cost, live | Lag p50 | Lag p90 |
+| ------------------------------- | -------- | ---- | ---------- | ---------- | ------- | ------- |
+| moonshine-tiny                  | 32 MB    | 5.1% | 0.09       | 0.53       | 1.0 s   | 1.5 s   |
+| moonshine-base                  | 67 MB    | 0.0% | 0.21       | 0.78       | 1.5 s   | 2.6 s   |
+| whisper-base, the first version | 149 MB   | 0.0% | 0.48       | 1.21       | 4.4 s   | 8.1 s   |
 
-Cost is the real-time factor: seconds of compute per second of audio. Under 1 means it could
-keep up with someone talking. WER is pooled, total errors over total reference words; the
-median is there because of the next paragraph.
+Cost is the real-time factor: seconds of compute per second of audio, and under 1 means it
+keeps up with someone talking. File is a recording read as fast as it goes. Live plays a
+minute of English at real speed and reads the line still being spoken again every 0.6
+seconds, which is where most of that cost goes. Lag runs from the end of a line to its text
+being final. The voice detector adds 2 MB to every download.
 
-That 149% comes from one runaway clip. On a six-second Russian recording, whisper-tiny
-emitted the word "нет" a hundred and ninety-six times and nothing else, eleven hundred
-characters of it. The clip really does open with someone saying "не" five times over, and the
-model latched on and never let go.
+The Whisper row is the old README's and was measured a little differently, one pass over each
+whole file, so read it as the size of the change rather than a careful comparison.
 
-That clip is also run through the streaming path, so the two can be compared directly:
+WER is pooled over two scored clips and 39 reference words, which is enough to see the shape
+and not enough to publish. Tiny's two errors are one short phrase, "ask not", which q8 tiny
+hears as nothing at all. q4 weights score the same on these clips, run slower and download
+59 MB, so the app ships q8.
 
-| ru-03, whisper-tiny | one pass        | streaming    |
-| ------------------- | --------------- | ------------ |
-| WER                 | 853.8%          | 96.2%        |
-| what came out       | 1109 characters | 7 characters |
-| cost                | 2.1 to 2.5      | 6.1 to 7.8   |
-
-The loop trimming in the streaming path is what closes that gap. It does not rescue the content, the
-model simply cannot do this clip at tiny, but it turns a page of noise into an obviously empty
-answer, which is the better way to be wrong. Note the cost column too: when the model loops,
-every window loops, and the streaming pipeline burns six to eight times real time doing it.
-That is exactly when the interface says it is falling behind.
-
-The trimming only ever looks at the end of a hypothesis, because that is where a runaway
-decoder lives: it never stops, so the repetition is always at the tail. A repetition in the
-middle of a sentence is left alone. A genuine one at the end is not, and there are tests
-saying so in both directions.
-
-The first version confirmed words by local agreement instead. The write-up of that design,
-and everything that went wrong building it, is in [docs/local-agreement.md](docs/local-agreement.md).
-
-English is finished and Russian is not. Two English clips, read speech and speech to a
-crowd, are transcribed word for word by anything at base or above. Spontaneous Russian over a
-phone-quality line is a median 19% wrong at base, ranging from 4% to 67% across eight clips.
-whisper-small gets the median to 14%, but costs 2.7 times real time, and nearly 5 times in the
-streaming loop.
-
-So the honest shape of this project is a live English transcriber, and a Russian one you
-point at a recording and wait for. The translate switch runs the same model on the same
-audio, so translated Russian inherits the same recognition quality; it does not launder it.
-
-The streaming loop, measured on a minute of English at real speed:
-
-|                    | tiny  | base  | small  |
-| ------------------ | ----- | ----- | ------ |
-| cost               | 0.87  | 1.21  | 4.83   |
-| confirmed lag, p50 | 2.7 s | 4.4 s | 10.0 s |
-| confirmed lag, p90 | 7.3 s | 8.1 s | 15.0 s |
-
-The ru-03 costs come from two runs after a fix to the end of a stream. The pipeline used to
-count its last pass twice, and when a pass was still running at the end it ran the final
-window twice as well; on a six-second clip that was most of the old figure of 15.5. On the
-minute of English it is one pass in thirty, well inside the spread between runs, so this
-table is still the earlier run.
-
-The spread is wide. The same one-pass work, same audio in and the same text out, has run up
-to 1.9 times slower from one run to the next on this laptop, and seven streaming runs of the
-same code put tiny anywhere from 0.87 to 1.2. Compare numbers within a run, not across runs.
+Costs are noisy. The same work has run up to 1.9 times slower from one run to the next on this
+laptop. Compare numbers within a run, not across runs.
 
 One more caveat, because it has bitten this project twice. Word error rate is only as good as
-its text normaliser. Before this one spelled out "Mr." and turned "пятьдесят" into "50",
-LibriSpeech scored 5.9% and the first Russian clip 27%, and every one of those errors was the
-scoring rather than the model. A WER quoted without saying which normaliser produced it is not
-a number.
+its text normaliser. Before this one spelled out "Mr." and turned "fifty" into "50",
+LibriSpeech scored 5.9%, and every one of those errors was the scoring rather than the model.
+A WER quoted without saying which normaliser produced it is not a number.
 
-The harness cannot get a GPU adapter here, headless or headed, so the table is WASM only, and
-CI is WASM only as well because the runners have no graphics card. Measured by hand in a
-desktop browser on the same machine, whisper-base at q4 sat around 0.62 on WebGPU against 0.28
-on WASM: twelve CPU cores beat this laptop's GPU, which is not what I expected and is exactly
-why the backend is a setting rather than a decision.
+It runs on WASM only. The WebGPU builds of onnxruntime are 27 and 28 MB, over the 25 MB
+Cloudflare Pages takes per file, and they need `eval` in the CSP. Tiny at q8 already runs at a
+fourteenth of real time on the CPU, so the GPU would buy nothing anyone could feel, and CI has
+no GPU either.
 
 ### Running the benchmark
 
@@ -107,24 +58,33 @@ why the backend is a setting rather than a decision.
 pnpm bench
 ```
 
-English audio is fetched at run time from Hugging Face. The eight Russian clips are committed,
-about two megabytes, because the only source with both audio and a reference transcript hands
-out URLs that expire. They come from SOVA RuDevices, CC BY 4.0. The report lands in
+Audio is fetched at run time from Hugging Face. `BENCH_MODELS`, `BENCH_DTYPE` and
+`BENCH_STREAM` choose what runs, and `packages/bench/env.ts` has the rest. The report lands in
 `packages/bench/report/`, and CI uploads it as an artifact.
 
 Adding a fixture is an edit to `packages/bench/fixtures.json`. One with no reference is timed
-but not scored, which is how the two English clips without transcripts earn their place.
+but not scored, which is how the two clips without transcripts earn their place.
 
 ## Latency, in structure
 
-A line is final once the speaker pauses. Half a second of silence closes it, the model reads the
-whole line once more, and that text stays. Until then the line still being spoken is read again
+A line is final once the speaker pauses. About three quarters of a second of silence closes it,
+a quarter that the voice detector holds on after the last word and half a second the segmenter
+waits after that, then the model reads the whole line once more, and that text stays. Until then the line still being spoken is read again
 every step and shown as a guess. So confirmed text trails the end of a sentence by the pause
 plus one pass, however long the sentence was. Someone who never pauses gets cut at fifteen
 seconds, at the quietest moment near it.
 
-A Whisper pass costs about a second whatever it is given, because its encoder pads every window
-to thirty seconds. That is the floor under both the pass and the guess step.
+A Moonshine pass costs what the line is long, because its encoder reads the audio it is given.
+Whisper padded every window to thirty seconds and paid a second for a two-second line. That is
+what makes reading the line under way again every 0.6 seconds affordable.
+
+A decoder that loses the thread repeats itself until its token budget runs out, so a phrase
+that comes three times or more at the end of a line is cut back to one copy. Only at the end,
+because that is where a runaway decoder lives. A genuine repetition there gets cut as well,
+and there are tests saying so in both directions.
+
+The first version confirmed words by local agreement instead. The write-up of that design,
+and everything that went wrong building it, is in [docs/local-agreement.md](docs/local-agreement.md).
 
 ## Privacy
 
@@ -150,39 +110,16 @@ browser telling you the truth about what is being read.
 
 ## Status
 
-The plan is done. What exists:
+It works end to end. A microphone, another tab's audio or a WAV file goes through one
+pipeline: Silero voice detection, a segmenter that closes a line at each pause, Moonshine in a
+worker. Confirmed lines are black and the line still being spoken is an amber guess.
+Timestamps play that moment of the recording back, the transcript can be searched and exported
+as Markdown, and the last ten sessions stay in IndexedDB with their audio. A service worker
+makes the page open with the network off, and a Playwright test cuts the network to prove it.
+The gist of a session is picked out of its lines with sentence embeddings.
 
-- pnpm workspace, strict TypeScript, lint, CI
-- `AudioWorklet` capture with a level meter
-- a polyphase resampler to 16 kHz, with the anti-alias tests that justify writing one
-- a WAV reader and a file-backed `AudioSource`, so the pipeline can run without a browser
-- Whisper in a worker on WebGPU or WASM, transcribing a whole file and reporting its cost
-- Silero voice activity detection in a second worker
-- a segmenter that closes a line at each pause, with its tests
-- one live view: microphone, another tab's audio, or a WAV file, all through the same
-  pipeline, with confirmed text in black and the current guess in amber
-- meters for what it costs: backend, real-time factor, how far the confirmed text is running
-  behind, how much audio is queued
-- timestamps you can click to hear that moment again, search across the transcript, and a
-  Markdown export
-- a translate switch, the same model in the same pass: speak Russian, read English, with the
-  Russian recognition being exactly as good or bad as the numbers above say
-- the last ten sessions kept in IndexedDB, transcript and audio, reopenable
-- a benchmark harness: fixtures, word error rate, real-time factor, confirmation lag
-  percentiles, a report in CI artifacts
-- a service worker, so the page itself opens with the network off and not just the weights,
-  with a Playwright test that cuts the network and reloads to prove it
-- an extractive summary: sentence embeddings, then the lines closest to the centre of what was
-  said that are not repeats of each other
-- a phone gets whisper-tiny by default, the download size is on the button before you tap it,
-  and a tab sent to the background says so instead of pretending to listen
-- new words are announced to a screen reader once, rather than the whole transcript being
-  read again every time the guess changes
-
-What does not exist yet. The fixture set is twelve clips, ten of them scored, which is enough
-to see the shape and not enough to publish. The microphone path has been exercised by hand
-rather than by anything automated, because a benchmark cannot speak. And the summary is
-English only, because the multilingual embedding model is 118 MB against 23.
+What it does not have yet is more than two scored clips, or any automated test of the
+microphone path, because a benchmark cannot speak.
 
 ## Running it
 
@@ -193,8 +130,8 @@ pnpm install
 pnpm dev
 ```
 
-Pick a file and a model. The weights download once, then stay in the browser cache, so the
-first run is slow and the rest are not.
+Pick a source and press start. The weights download once, then stay in the browser cache, so
+the first run is slow and the rest are not.
 
 `pnpm install` will mention three dependencies whose build scripts it skipped:
 `onnxruntime-node`, `sharp` and `protobufjs`. They arrive with transformers.js, which also
@@ -211,18 +148,17 @@ Cross-Origin-Embedder-Policy: credentialless
 They are what lets onnxruntime start its thread pool, which is worth roughly a factor of two
 on WASM, and the `credentialless` variant is what still allows the weights to come from
 Hugging Face. `packages/app/public/_headers` asks Cloudflare Pages for them and ships in the
-build output, together with the CSP. That policy carries `'unsafe-eval'`, because onnxruntime's
-asyncify and WebGPU builds make functions with `new Function`; `connect-src` is the part doing
-the work. The offline test serves the build with the same file. Anywhere else, set them
-yourself; without the first two the app works and is half the speed.
+build output, together with the CSP. That policy allows `'wasm-unsafe-eval'` and not
+`'unsafe-eval'`: WebAssembly may compile, JavaScript may not be built from strings. The
+offline test serves the build with the same file. Anywhere else, set them yourself; without
+the first two the app works and is half the speed.
 
 ```
 pnpm build
 pnpm dlx wrangler pages deploy packages/app/dist/app/browser --project-name aloud
 ```
 
-The build copies two onnxruntime builds into `ort/`, about 36 MB. The larger file is 23.6 MB,
-which fits under the 25 MB Pages allows per file, but not by much.
+The build copies onnxruntime's plain WebAssembly build into `ort/`, 14 MB in one file.
 
 ## Layout
 
@@ -241,7 +177,11 @@ microphone on one end or a WAV file on the other, and only the file version can 
 
 ## Things it will not do
 
-It is not instant on a phone: the first visit downloads about 96 MB before it can transcribe
+It understands English and nothing else, because Moonshine was trained on English and nothing
+else. The first version ran Whisper and did Russian too, at a median 19% word error on
+spontaneous speech with whisper-base. That was not good enough to keep paying 149 MB for.
+
+It is not instant on a phone: the first visit downloads about 34 MB before it can transcribe
 anything, and the button says so before you tap it. After that the weights are cached and it
 starts in a second.
 
@@ -254,15 +194,10 @@ clustering, and it fails loudly enough that people trust the whole transcript le
 
 The gist is lines lifted out of the transcript by similarity and left as they were, because
 an abstractive summary needs a second language model and a new way to be confidently wrong
-about what somebody said. It also only works on English; a Russian transcript is better
-summarised after translating it, which the app can do in the same pass.
+about what somebody said.
 
-A paid API is more accurate, and on Russian it is not close. See the numbers: a median 19%
-word error at base, 14% at small, and small costs nearly three times real time. English is a
-different story and the numbers say so too.
-
-WebGPU does not make it fast by itself. On the laptop this was built on, twelve CPU cores beat
-the GPU by two to one, so the backend is a setting rather than a guess.
+A paid API is more accurate. Base makes no mistakes on the two scored clips here, but two
+clips are two clips.
 
 ## What I would do differently
 
@@ -291,8 +226,8 @@ still allocates a four kilobyte buffer on the audio thread fifty times a second,
 has glitched. Leaving it is the right call on the evidence and it is still the piece I would
 reach for first if a dropout ever showed up.
 
-Whisper is the wrong shape for this and I would pick it again. An encoder that pads every
-window to thirty seconds is the reason a pass costs a fixed second and the reason live Russian
-is out of reach here. A model built for streaming would be better at this job. It would also
-not have twenty language-quality comparisons, four quantisations and an ONNX export that runs
-in a browser tab today.
+I should have started with Moonshine. Whisper pads every window to thirty seconds, so every
+pass cost a second whatever was in it, so the lag was four seconds, so I built a stabiliser to
+agree on words across passes. Moonshine reads a line in a fraction of that, and lines can
+simply end at the pauses. The switch cost Russian and an essay's worth of machinery, and took
+the download from 149 MB to 32.

@@ -9,7 +9,9 @@ export type AloudErrorCode =
   | 'model-load-failed'
   | 'inference-failed'
   | 'vad-load-failed'
-  | 'vad-failed';
+  | 'vad-failed'
+  /** The worker is gone, so every later request would fail the same way. */
+  | 'worker-died';
 
 export class AloudError extends Error {
   readonly code: AloudErrorCode;

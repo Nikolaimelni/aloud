@@ -27,7 +27,8 @@ export class SileroVad {
     // A bundled worker has no idea where onnxruntime's wasm ended up, so it is told.
     ort.env.wasm.wasmPaths =
       runtimeUrl ?? `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.env.versions.web}/dist/`;
-    // One thread on purpose. This model is two megabytes and it runs while Whisper is working.
+    // One thread on purpose. This model is two megabytes and it runs while the speech model
+    // is working.
     ort.env.wasm.numThreads = 1;
 
     try {

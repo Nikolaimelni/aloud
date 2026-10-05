@@ -15,14 +15,9 @@ describe('normalise', () => {
     ]);
   });
 
-  it('treats yo as ye, which is how it is usually typed', () => {
-    expect(normalise('ещё')).toEqual(['еще']);
-  });
-
   it('counts a number as the same number however it was written', () => {
     expect(normalise('fifty two')).toEqual(['50', '2']);
-    expect(normalise('пятьдесят')).toEqual(['50']);
-    expect(normalise('сто штук')).toEqual(['100', 'штук']);
+    expect(normalise('a hundred people')).toEqual(['a', '100', 'people']);
   });
 
   it('spells out the abbreviations that reference transcripts spell out', () => {
@@ -53,9 +48,7 @@ describe('wordErrorRate', () => {
   });
 
   it('does not punish the model for writing a number as digits', () => {
-    expect(
-      wordErrorRate('мы можем ему только пятьдесят дать', 'мы можем ему только 50 дать').wer,
-    ).toBe(0);
+    expect(wordErrorRate('we can only give him fifty', 'we can only give him 50').wer).toBe(0);
   });
 
   it('counts a swapped word as one substitution', () => {

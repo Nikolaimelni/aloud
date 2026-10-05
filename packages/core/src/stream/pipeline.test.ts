@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TranscribeResult } from '../asr/worker-client';
 import { TARGET_SAMPLE_RATE, type AudioSource, type FrameHandler } from '../audio/source';
+import { AloudError } from '../errors';
 import { StreamingTranscriber, type StreamUpdate } from './pipeline';
 
 const FRAME = 0.1;
@@ -43,7 +44,7 @@ class DeniedSource extends FakeSource {
   }
 }
 
-type Pass = { readonly seconds: number; finish(text?: string): void };
+type Pass = { readonly seconds: number; finish(text?: string): void; fail(error: Error): void };
 
 /** A model whose passes finish when the test says so, with whatever text it is given. */
 function slowModel() {
@@ -51,10 +52,11 @@ function slowModel() {
   return {
     passes,
     transcribe: (samples: Float32Array) =>
-      new Promise<TranscribeResult>((resolve) => {
+      new Promise<TranscribeResult>((resolve, reject) => {
         passes.push({
           seconds: samples.length / TARGET_SAMPLE_RATE,
-          finish: (text = '') => resolve({ transcript: { text, chunks: [] }, elapsedMs: 0 }),
+          finish: (text = '') => resolve({ transcript: { text }, elapsedMs: 0 }),
+          fail: reject,
         });
       }),
   };
@@ -209,5 +211,45 @@ describe('StreamingTranscriber', () => {
 
     expect(await settledYet(source.play(0, 1))).toBe(true);
     expect(await settledYet(source.play(1, 3, false))).toBe(true);
+  });
+
+  it('drops the guess for a line the model failed on', async () => {
+    const model = slowModel();
+    const updates: StreamUpdate[] = [];
+    const source = new FakeSource(true);
+    const transcriber = new StreamingTranscriber(source, vad, model, {
+      onUpdate: (update) => updates.push(update),
+      onError: () => {},
+    });
+    await transcriber.start();
+
+    await source.play(0, 0.6);
+    model.passes[0]!.finish('Hello');
+    await source.play(0.6, 0.6, false);
+    model.passes[1]!.fail(new Error('the model stopped mid-transcription'));
+    await settle();
+
+    expect(updates.at(-1)?.pending).toBe('');
+  });
+
+  it('ends the session when a worker dies instead of failing every frame', async () => {
+    const errors: unknown[] = [];
+    const source = new FakeSource();
+    const deadVad = {
+      reset: async () => {},
+      classify: async () => {
+        throw new AloudError('worker-died', 'the voice detection worker died');
+      },
+    };
+    const transcriber = new StreamingTranscriber(source, deadVad, slowModel(), {
+      onUpdate: () => {},
+      onError: (error) => errors.push(error),
+    });
+    await transcriber.start();
+
+    await source.play(0, 0.3);
+
+    expect(await settledYet(transcriber.finished)).toBe(true);
+    expect(errors).not.toHaveLength(0);
   });
 });

@@ -1,31 +1,26 @@
 import { env, pipeline } from '@huggingface/transformers';
+import { TARGET_SAMPLE_RATE } from '../audio/source';
 import { AloudError } from '../errors';
 import { retry } from '../retry';
-import type {
-  AsrDevice,
-  AsrModelSpec,
-  AsrPrecision,
-  ModelProgress,
-  Transcript,
-  TranscribeOptions,
-} from './protocol';
+import type { AsrDevice, AsrModelSpec, AsrPrecision, ModelProgress, Transcript } from './protocol';
 
 type Transcriber = Awaited<ReturnType<typeof pipeline<'automatic-speech-recognition'>>>;
 
-/** Whisper only ever sees 30-second windows, so anything longer is chunked with an overlap. */
-const CHUNK_SECONDS = 30;
-const STRIDE_SECONDS = 5;
+/**
+ * q8 is what keeps tiny at 32 MB. The q4 export quantises the matrices but leaves the token
+ * table in float32, and comes out at 55.
+ */
+const DEFAULT_DTYPE: AsrPrecision = 'q8';
 
 /**
- * Measured on an 11 s clip with whisper-base on an AMD GCN5 GPU: q4 everywhere runs at 0.23x
- * real time and pulls 142 MB, against 0.63x and 206 MB for the fp32 encoder that the
- * transformers.js examples reach for. On WASM the q8 decoder will not even build a session,
- * onnxruntime rejects the quantised graph. The benchmark has since agreed: q4 loses nothing
- * measurable on either language at any of the three sizes.
+ * The paper caps output at six tokens per second of audio, so a decoder that has lost the
+ * thread cannot write a page. transformers.js rounds the seconds down, which gives a line
+ * under a second no tokens at all; this rounds up, with a floor for a single word.
  */
-const DEFAULT_DTYPE: AsrPrecision = 'q4';
+const TOKENS_PER_SECOND = 6;
+const MIN_TOKENS = 8;
 
-export class WhisperEngine {
+export class SpeechEngine {
   private transcriber: Transcriber | null = null;
   private loaded: AsrDevice | null = null;
 
@@ -68,29 +63,18 @@ export class WhisperEngine {
     return device;
   }
 
-  async transcribe(samples: Float32Array, options: TranscribeOptions): Promise<Transcript> {
+  async transcribe(samples: Float32Array): Promise<Transcript> {
     const transcriber = this.transcriber;
     if (!transcriber) {
       throw new AloudError('inference-failed', 'transcribe was called before the model loaded');
     }
 
+    const seconds = samples.length / TARGET_SAMPLE_RATE;
     try {
       const output = await transcriber(samples, {
-        task: options.task ?? 'transcribe',
-        return_timestamps: options.timestamps ?? true,
-        chunk_length_s: CHUNK_SECONDS,
-        stride_length_s: STRIDE_SECONDS,
-        ...(options.language ? { language: options.language } : {}),
+        max_new_tokens: Math.max(MIN_TOKENS, Math.ceil(seconds * TOKENS_PER_SECOND)),
       });
-
-      return {
-        text: output.text.trim(),
-        chunks: (output.chunks ?? []).map((chunk) => {
-          const [start, end] = chunk.timestamp;
-          // Whisper leaves the last chunk open-ended more often than the types admit.
-          return { start, end: Number.isFinite(end) ? end : start, text: chunk.text };
-        }),
-      };
+      return { text: output.text.trim() };
     } catch (cause) {
       throw new AloudError('inference-failed', 'the model stopped mid-transcription', { cause });
     }
@@ -98,29 +82,20 @@ export class WhisperEngine {
 }
 
 /**
- * transformers.js points onnxruntime at jsDelivr when it is imported. Keep the build it chose,
- * which is a different one on Safari, and change only where the files come from.
+ * transformers.js points onnxruntime at jsDelivr when it is imported, and at the asyncify build
+ * everywhere but Safari. The app runs on WASM only, so it takes the plain build, half the size
+ * and with no eval in it, from its own origin. WebGPU needs the other build: leave `base` out.
  */
 export function serveRuntimeFrom(base: string): void {
   const wasm = env.backends.onnx.wasm;
-  const paths = wasm?.wasmPaths;
-  // Anything else would leave onnxruntime on jsDelivr, where the CSP blocks it with an error
-  // that points nowhere near here.
-  if (!wasm || !paths || typeof paths === 'string' || paths instanceof URL) {
-    throw new AloudError(
-      'model-load-failed',
-      'transformers.js no longer names the onnxruntime files one by one, so they cannot be served from this site',
-    );
+  if (!wasm) {
+    throw new AloudError('model-load-failed', 'onnxruntime has no WebAssembly backend here');
   }
 
   wasm.wasmPaths = {
-    ...(paths.mjs ? { mjs: new URL(fileName(paths.mjs), base).href } : {}),
-    ...(paths.wasm ? { wasm: new URL(fileName(paths.wasm), base).href } : {}),
+    mjs: new URL('ort-wasm-simd-threaded.mjs', base).href,
+    wasm: new URL('ort-wasm-simd-threaded.wasm', base).href,
   };
-}
-
-function fileName(path: URL | string): string {
-  return String(path).split('/').pop() ?? '';
 }
 
 async function detectDevice(): Promise<AsrDevice> {

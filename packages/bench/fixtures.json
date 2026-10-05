@@ -1,5 +1,5 @@
 {
-  "note": "English audio is fetched at run time from stable Hugging Face repo files. The Russian clips are committed, about two megabytes of them, because the only source with both audio and a reference transcript hands out URLs that expire, and because two clips were not enough to say anything. A fixture without a reference is measured for speed only.",
+  "note": "Fetched at run time from stable Hugging Face repo files, so nothing large is committed. A fixture without a reference is measured for speed only.",
   "fixtures": [
     {
       "id": "librispeech-clean",
@@ -32,70 +32,6 @@
       "note": "two people, overlapping turns",
       "source": "Xenova/transformers.js-docs",
       "reference": null
-    },
-    {
-      "id": "ru-01",
-      "url": "/fixtures/ru-01.wav",
-      "language": "russian",
-      "note": "26 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "серёга дядьке сто штук мы не можем дать у нас не хватает мы можем ему только пятьдесят дать в связи с этими крышками мы не можем"
-    },
-    {
-      "id": "ru-02",
-      "url": "/fixtures/ru-02.wav",
-      "language": "russian",
-      "note": "15 words, spontaneous, the hardest one here",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "слушай что она расскажет про какие динамические массивы она хоть знает об этом или нет"
-    },
-    {
-      "id": "ru-03",
-      "url": "/fixtures/ru-03.wav",
-      "language": "russian",
-      "note": "26 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "не не не не не послушай но мне же не нравится то что я вижу как я могу значит ну ставить пятёрку если мне не нравится"
-    },
-    {
-      "id": "ru-04",
-      "url": "/fixtures/ru-04.wav",
-      "language": "russian",
-      "note": "26 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "ну он больше мы на русском мама хотела чтобы мы на русском разговаривали мы с ним говорили на русском но он включил всё-равно английский режим чтобы"
-    },
-    {
-      "id": "ru-05",
-      "url": "/fixtures/ru-05.wav",
-      "language": "russian",
-      "note": "26 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "если это максимально простым языком опять же расписать в этом списке то ему по сути уже это всё ясно и можно закончить как раз вот на"
-    },
-    {
-      "id": "ru-06",
-      "url": "/fixtures/ru-06.wav",
-      "language": "russian",
-      "note": "26 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "почему так всё сложно почему так сложно быть взрослым сегодня пришла в травму какая-то женщина подходит говорит вы сюда я такая ну да наверное она такая"
-    },
-    {
-      "id": "ru-07",
-      "url": "/fixtures/ru-07.wav",
-      "language": "russian",
-      "note": "25 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "он такой слушай а я никогда не видел типа ну я говорила что у меня новая квартира всё такое он говорю я никогда не видел"
-    },
-    {
-      "id": "ru-08",
-      "url": "/fixtures/ru-08.wav",
-      "language": "russian",
-      "note": "22 words, spontaneous",
-      "source": "SOVA RuDevices via bond005/sova_rudevices, CC BY 4.0.",
-      "reference": "есть очень много способов есть как можно подешевле и даже подороже приехать в германию ты знаешь каким способом я приехал в германию"
     }
   ]
 }

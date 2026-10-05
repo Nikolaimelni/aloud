@@ -1,5 +1,9 @@
 # Making a model that cannot stream look like it streams
 
+This is the Whisper version of Aloud. The app has since moved to Moonshine and ends a line at
+each pause instead, and the README says why. What follows is still how local agreement works,
+and still everything that went wrong with it.
+
 Whisper reads a window of audio and writes the whole window out. There is no partial result,
 no token you can take early, nothing that arrives while the sentence is still being said. It
 is an encoder-decoder over a fixed thirty second window, and it was never meant for live use.

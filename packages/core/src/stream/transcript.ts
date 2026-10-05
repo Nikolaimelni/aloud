@@ -9,8 +9,6 @@ export type MarkdownOptions = {
   readonly recordedAt?: Date;
   /** IANA zone for the recording time. Left out, wherever the code is running. */
   readonly timeZone?: string;
-  readonly language?: string;
-  readonly translated?: boolean;
   /** Lines the summary picked out, if anyone asked for one. */
   readonly highlights?: readonly Segment[];
 };
@@ -63,12 +61,7 @@ export function toMarkdown(segments: readonly Segment[], options: MarkdownOption
   if (last) {
     facts.push(`${clock(last.end)} long`);
   }
-  if (options.translated) {
-    facts.push('Translated to English');
-  } else if (options.language) {
-    facts.push(`Language: ${options.language}`);
-  }
-  facts.push('Transcribed on device with Whisper, so expect mistakes');
+  facts.push('Transcribed on device with Moonshine, so expect mistakes');
   lines.push(facts.join('. ') + '.', '');
 
   const highlights = options.highlights ?? [];
@@ -97,13 +90,19 @@ export type TextPart = {
  * Case-insensitive, with positions in the text as given. Searching a lowercased copy would
  * shift every match after a character that lowercases to two, such as 'İ'.
  */
-function pattern(needle: string): RegExp {
-  return new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
+function pattern(needle: string, flags: string): RegExp {
+  return new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
 }
 
-/** Whether a line matches the search, by the same rule the highlighting uses. */
-export function contains(text: string, needle: string): boolean {
-  return !needle || pattern(needle).test(text);
+/**
+ * Whether a line matches the search, by the same rule the highlighting uses. Built once per
+ * search rather than once per line: the transcript is filtered again on every update.
+ */
+export function matcher(needle: string): (text: string) => boolean {
+  if (!needle) return () => true;
+  // No `g`: a global regex keeps lastIndex between test() calls and skips every other match.
+  const search = pattern(needle, 'iu');
+  return (text) => search.test(text);
 }
 
 /**
@@ -118,7 +117,7 @@ export function highlight(text: string, needle: string): TextPart[] {
   const parts: TextPart[] = [];
   let at = 0;
 
-  for (const match of text.matchAll(pattern(needle))) {
+  for (const match of text.matchAll(pattern(needle, 'giu'))) {
     if (match.index > at) {
       parts.push({ text: text.slice(at, match.index), hit: false });
     }

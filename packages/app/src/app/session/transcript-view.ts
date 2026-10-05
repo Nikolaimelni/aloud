@@ -11,8 +11,8 @@ import {
 } from '@angular/core';
 import {
   clock,
-  contains,
   highlight,
+  matcher,
   type Segment,
   type TextPart,
 } from '@aloud/core/stream/transcript';
@@ -57,9 +57,10 @@ export class TranscriptView {
   protected readonly rows = computed<Row[]>(() => {
     const needle = this.query().trim();
     const at = this.playhead();
+    const matches = matcher(needle);
 
     return this.segments()
-      .filter((segment) => contains(segment.text, needle))
+      .filter((segment) => matches(segment.text))
       .map((segment) => ({
         start: segment.start,
         stamp: clock(segment.start),

@@ -6,7 +6,7 @@ export type AsrPrecision = 'fp32' | 'fp16' | 'q8' | 'q4';
 export type AsrDtype = AsrPrecision | Readonly<Record<string, AsrPrecision>>;
 
 export type AsrModelSpec = {
-  /** Hugging Face repo, for example `onnx-community/whisper-base`. */
+  /** Hugging Face repo, for example `onnx-community/moonshine-tiny-ONNX`. */
   readonly model: string;
   /** A commit in that repo. Left out, whatever `main` is today. */
   readonly revision?: string;
@@ -15,22 +15,8 @@ export type AsrModelSpec = {
   readonly dtype?: AsrDtype;
 };
 
-export type TranscribeOptions = {
-  /** Whisper language name or code. Leave it out and the model guesses, badly, on short audio. */
-  readonly language?: string;
-  readonly task?: 'transcribe' | 'translate';
-  readonly timestamps?: boolean | 'word';
-};
-
-export type TranscriptChunk = {
-  readonly start: number;
-  readonly end: number;
-  readonly text: string;
-};
-
 export type Transcript = {
   readonly text: string;
-  readonly chunks: readonly TranscriptChunk[];
 };
 
 export type ModelProgress = {
@@ -49,7 +35,7 @@ export type AsrRequest =
     }
   /**
    * Sentence embeddings for the summary. They live in this worker rather than a third one
-   * because transformers.js is already resident here. They never run while Whisper is
+   * because transformers.js is already resident here. They never run while the model is
    * transcribing, and do not need it loaded.
    */
   | {
@@ -63,7 +49,6 @@ export type AsrRequest =
       readonly kind: 'transcribe';
       readonly id: number;
       readonly samples: Float32Array;
-      readonly options: TranscribeOptions;
     };
 
 export type AsrEvent =

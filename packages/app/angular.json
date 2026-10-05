@@ -32,11 +32,6 @@
                 "glob": "ort-wasm-simd-threaded.{mjs,wasm}",
                 "input": "node_modules/onnxruntime-web/dist",
                 "output": "ort"
-              },
-              {
-                "glob": "ort-wasm-simd-threaded.asyncify.{mjs,wasm}",
-                "input": "node_modules/onnxruntime-web/dist",
-                "output": "ort"
               }
             ],
             "styles": ["src/styles.scss"],
@@ -74,11 +69,6 @@
                 },
                 {
                   "glob": "ort-wasm-simd-threaded.{mjs,wasm}",
-                  "input": "node_modules/onnxruntime-web/dist",
-                  "output": "ort"
-                },
-                {
-                  "glob": "ort-wasm-simd-threaded.asyncify.{mjs,wasm}",
                   "input": "node_modules/onnxruntime-web/dist",
                   "output": "ort"
                 }

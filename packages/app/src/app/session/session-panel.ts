@@ -7,13 +7,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { LANGUAGE_NAMES } from '@aloud/core/asr/languages';
-import {
-  isWhisperSize,
-  WHISPER_MODELS,
-  WHISPER_SIZES,
-  type WhisperSize,
-} from '@aloud/core/asr/models';
+import { isModelSize, MODEL_SIZES, MODELS, type ModelSize } from '@aloud/core/asr/models';
 import { clock } from '@aloud/core/stream/transcript';
 import { EMBEDDING_SIZE_MB } from '@aloud/core/summary/model';
 import { LevelMeter } from '../capture/level-meter';
@@ -63,10 +57,9 @@ export class SessionPanel {
   protected readonly settings = inject(ModelSettings);
 
   protected readonly sources = SOURCES;
-  protected readonly sizes = WHISPER_SIZES;
+  protected readonly sizes = MODEL_SIZES;
   protected readonly precisions = PRECISIONS;
   protected readonly stepRange = STEP_RANGE;
-  protected readonly languageNames = LANGUAGE_NAMES;
   protected readonly playhead = signal(0);
 
   private readonly player = viewChild<ElementRef<HTMLAudioElement>>('player');
@@ -81,8 +74,8 @@ export class SessionPanel {
     this.host.hasWeights() ? 'Start listening' : `Download ${this.sizeMb()} MB and start`,
   );
 
-  protected sizeOf(size: WhisperSize): number {
-    return WHISPER_MODELS[size].sizeMb;
+  protected sizeOf(size: ModelSize): number {
+    return MODELS[size].sizeMb;
   }
 
   protected readonly placeholder = computed(() =>
@@ -131,24 +124,9 @@ export class SessionPanel {
     this.store.query.set(value(event));
   }
 
-  protected setTranslate(event: Event): void {
-    this.store.translate.set((event.target as HTMLInputElement).checked);
-  }
-
   protected setModel(event: Event): void {
     const chosen = value(event);
-    if (isWhisperSize(chosen)) this.settings.model.set(chosen);
-  }
-
-  protected setLanguage(event: Event): void {
-    this.settings.language.set(value(event));
-  }
-
-  protected setDevice(event: Event): void {
-    const chosen = value(event);
-    if (chosen === 'auto' || chosen === 'webgpu' || chosen === 'wasm') {
-      this.settings.device.set(chosen);
-    }
+    if (isModelSize(chosen)) this.settings.model.set(chosen);
   }
 
   protected setPrecision(event: Event): void {

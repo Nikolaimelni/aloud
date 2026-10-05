@@ -39,16 +39,6 @@
   } @else if (store.source() !== 'file') {
     <button type="button" class="primary" (click)="store.start()">{{ startLabel() }}</button>
   }
-
-  <label class="check">
-    <input
-      type="checkbox"
-      [checked]="store.translate()"
-      [disabled]="store.listening()"
-      (change)="setTranslate($event)"
-    />
-    translate to English
-  </label>
 </div>
 
 @if (host.loading()) {
@@ -61,8 +51,8 @@
       <progress [value]="progress.loaded" [max]="progress.total"></progress>
     } @else {
       <p>
-        Starting the model. whisper-{{ settings.model() }} is about {{ sizeMb() }} MB the first time
-        and cached afterwards.
+        Starting the model. Moonshine {{ settings.model() }} is about {{ sizeMb() }} MB the first
+        time and cached afterwards.
       </p>
     }
     <p class="warn">On a phone plan, wait for wi-fi.</p>
@@ -156,10 +146,6 @@
 @if (store.passes() > 0) {
   <dl class="meters">
     <div>
-      <dt>backend</dt>
-      <dd>{{ host.device() ?? '-' }}</dd>
-    </div>
-    <div>
       <dt>real-time factor</dt>
       <dd>{{ factor(store.realTimeFactor()) }}</dd>
     </div>
@@ -186,21 +172,8 @@
       Model
       <select [value]="settings.model()" [disabled]="store.listening()" (change)="setModel($event)">
         @for (size of sizes; track size) {
-          <option [value]="size">whisper-{{ size }} ({{ sizeOf(size) }} MB)</option>
+          <option [value]="size">Moonshine {{ size }} ({{ sizeOf(size) }} MB)</option>
         }
-      </select>
-    </label>
-
-    <label>
-      Backend
-      <select
-        [value]="settings.device()"
-        [disabled]="store.listening()"
-        (change)="setDevice($event)"
-      >
-        <option value="auto">auto</option>
-        <option value="webgpu">webgpu</option>
-        <option value="wasm">wasm</option>
       </select>
     </label>
 
@@ -215,25 +188,6 @@
           <option [value]="precision">{{ precision }}</option>
         }
       </select>
-    </label>
-
-    <label>
-      Language
-      <input
-        type="text"
-        placeholder="auto"
-        size="8"
-        list="languages"
-        [value]="settings.language()"
-        [attr.aria-invalid]="settings.languageCode() === null"
-        [disabled]="store.listening()"
-        (input)="setLanguage($event)"
-      />
-      <datalist id="languages">
-        @for (name of languageNames; track name) {
-          <option [value]="name"></option>
-        }
-      </datalist>
     </label>
 
     <label>
