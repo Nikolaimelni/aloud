@@ -9,8 +9,8 @@ const HANGOVER_MS = 250;
  *
  * Two thresholds rather than one, because a single threshold flickers on every breath, and a
  * hangover on top, because the gap between two words is silence to the model and not to the
- * person listening. Without the hangover the chunker would decide nobody was talking in the
- * middle of a sentence and quietly stop transcribing it.
+ * person listening. Without the hangover every breath in the middle of a sentence would come
+ * close to ending the line.
  */
 export class SpeechGate {
   private readonly enter: number;

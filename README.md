@@ -47,7 +47,7 @@ That clip is also run through the streaming path, so the two can be compared dir
 | what came out       | 1109 characters | 7 characters |
 | cost                | 2.1 to 2.5      | 6.1 to 7.8   |
 
-The stabiliser's loop trimming is what closes that gap. It does not rescue the content, the
+The loop trimming in the streaming path is what closes that gap. It does not rescue the content, the
 model simply cannot do this clip at tiny, but it turns a page of noise into an obviously empty
 answer, which is the better way to be wrong. Note the cost column too: when the model loops,
 every window loops, and the streaming pipeline burns six to eight times real time doing it.
@@ -58,8 +58,8 @@ decoder lives: it never stops, so the repetition is always at the tail. A repeti
 middle of a sentence is left alone. A genuine one at the end is not, and there are tests
 saying so in both directions.
 
-There is a longer write-up of the streaming design and everything that went wrong building it
-in [docs/local-agreement.md](docs/local-agreement.md).
+The first version confirmed words by local agreement instead. The write-up of that design,
+and everything that went wrong building it, is in [docs/local-agreement.md](docs/local-agreement.md).
 
 English is finished and Russian is not. Two English clips, read speech and speech to a
 crowd, are transcribed word for word by anything at base or above. Spontaneous Russian over a
@@ -117,15 +117,14 @@ but not scored, which is how the two English clips without transcripts earn thei
 
 ## Latency, in structure
 
-A word is printed as final only when two consecutive passes agree on it, so in the worst case
-it waits out a window step, then a pass, then another step, then another pass. The step is the
-part you pay for twice, which is why raising it does not help: at 2.2 seconds the lag got
-worse, not better.
+A line is final once the speaker pauses. Half a second of silence closes it, the model reads the
+whole line once more, and that text stays. Until then the line still being spoken is read again
+every step and shown as a guess. So confirmed text trails the end of a sentence by the pause
+plus one pass, however long the sentence was. Someone who never pauses gets cut at fifteen
+seconds, at the quietest moment near it.
 
-A pass costs about a second whatever the window contains, because Whisper's encoder pads
-every window to thirty seconds. That is the floor under the step, and it is why getting this
-down to a second of lag needs a smaller model or a faster machine rather than a better
-setting.
+A Whisper pass costs about a second whatever it is given, because its encoder pads every window
+to thirty seconds. That is the floor under both the pass and the guess step.
 
 ## Privacy
 
@@ -159,7 +158,7 @@ The plan is done. What exists:
 - a WAV reader and a file-backed `AudioSource`, so the pipeline can run without a browser
 - Whisper in a worker on WebGPU or WASM, transcribing a whole file and reporting its cost
 - Silero voice activity detection in a second worker
-- the sliding window chunker and the local-agreement stabiliser, with their tests
+- a segmenter that closes a line at each pause, with its tests
 - one live view: microphone, another tab's audio, or a WAV file, all through the same
   pipeline, with confirmed text in black and the current guess in amber
 - meters for what it costs: backend, real-time factor, how far the confirmed text is running
@@ -228,8 +227,8 @@ which fits under the 25 MB Pages allows per file, but not by much.
 ## Layout
 
 ```
-packages/core   audio sources, resampling, WAV in and out, voice activity, windowing, the
-                stabiliser, the inference engine and both worker protocols
+packages/core   audio sources, resampling, WAV in and out, voice activity, cutting lines
+                at pauses, the inference engine and both worker protocols
 packages/app    Angular 22, zoneless, signals; owns the worklet asset, the two Workers and
                 the IndexedDB archive
 packages/bench  a page with no interface, driven by Playwright, that measures the same core

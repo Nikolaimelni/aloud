@@ -1,52 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clock, contains, highlight, localStamp, toMarkdown, toSegments } from './transcript';
-import type { Word } from './stabilize';
-
-function word(text: string, start: number, end: number): Word {
-  return { text: ` ${text}`, start, end };
-}
-
-describe('toSegments', () => {
-  it('keeps words that run together on one line', () => {
-    const segments = toSegments([
-      word('we', 0, 0.3),
-      word('ship', 0.3, 0.7),
-      word('friday', 0.8, 1.3),
-    ]);
-
-    expect(segments).toHaveLength(1);
-    expect(segments[0]).toMatchObject({ start: 0, end: 1.3, text: 'we ship friday' });
-  });
-
-  it('breaks where someone stopped to breathe', () => {
-    const segments = toSegments([
-      word('we', 0, 0.3),
-      word('ship', 0.3, 0.7),
-      word('actually', 2.0, 2.5),
-      word('no', 2.5, 2.8),
-    ]);
-
-    expect(segments.map((segment) => segment.text)).toEqual(['we ship', 'actually no']);
-  });
-
-  it('breaks a monologue at the ceiling even with no pause', () => {
-    const words: Word[] = [];
-    for (let i = 0; i < 60; i++) {
-      words.push(word(`w${i}`, i * 0.4, i * 0.4 + 0.35));
-    }
-
-    const segments = toSegments(words, { maxSeconds: 6 });
-
-    expect(segments.length).toBeGreaterThan(3);
-    for (const segment of segments) {
-      expect(segment.end - segment.start).toBeLessThanOrEqual(6.5);
-    }
-  });
-
-  it('has nothing to say about nothing', () => {
-    expect(toSegments([])).toEqual([]);
-  });
-});
+import { clock, contains, highlight, localStamp, toMarkdown } from './transcript';
 
 describe('clock', () => {
   it('counts in minutes until it has to count in hours', () => {

@@ -1,60 +1,8 @@
-import type { Word } from './stabilize';
-
 export type Segment = {
   readonly start: number;
   readonly end: number;
   readonly text: string;
 };
-
-export type SegmentOptions = {
-  /** A pause longer than this starts a new line. */
-  readonly gapSeconds?: number;
-  /** Hard ceiling, so someone who never pauses does not become one paragraph. */
-  readonly maxSeconds?: number;
-};
-
-const GAP = 0.8;
-const MAX = 18;
-
-/**
- * Words into readable lines. Pauses do most of the work, because that is where a person
- * would have put a line break anyway.
- */
-export function toSegments(words: readonly Word[], options: SegmentOptions = {}): Segment[] {
-  const gap = options.gapSeconds ?? GAP;
-  const max = options.maxSeconds ?? MAX;
-
-  const segments: Segment[] = [];
-  let current: Word[] = [];
-
-  const close = () => {
-    const first = current[0];
-    const last = current[current.length - 1];
-    if (!first || !last) return;
-
-    segments.push({
-      start: first.start,
-      end: last.end,
-      text: current
-        .map((word) => word.text)
-        .join('')
-        .trim(),
-    });
-    current = [];
-  };
-
-  for (const word of words) {
-    const previous = current[current.length - 1];
-    const opened = current[0];
-    if (previous && opened && (word.start - previous.end > gap || word.end - opened.start > max)) {
-      close();
-    }
-    current.push(word);
-  }
-  close();
-
-  return segments;
-}
 
 export type MarkdownOptions = {
   readonly title?: string;

@@ -130,8 +130,8 @@
 />
 
 <p class="legend">
-  <span class="swatch confirmed"></span> two passes agreed <span class="swatch guess"></span> still
-  a guess
+  <span class="swatch confirmed"></span> final, the line has ended
+  <span class="swatch guess"></span> still a guess
 </p>
 
 @if (store.recording(); as audio) {
@@ -237,7 +237,7 @@
     </label>
 
     <label>
-      Window step
+      Guess every
       <input
         type="number"
         [attr.min]="stepRange.min"
@@ -253,7 +253,7 @@
   </div>
 
   <p class="note">
-    A pass over the window costs about a second whatever the step, so a step under that builds a
-    backlog rather than reducing the lag.
+    How often the line still being spoken is read again. A line becomes final at the next pause
+    whatever this is set to; a shorter step only makes the guess livelier, and costs compute.
   </p>
 </details>

@@ -7,14 +7,7 @@ import { tapFrames } from '@aloud/core/audio/tap';
 import { WavSource } from '@aloud/core/audio/wav-source';
 import { AloudError } from '@aloud/core/errors';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
-import { textOf } from '@aloud/core/stream/stabilize';
-import {
-  contains,
-  localStamp,
-  toMarkdown,
-  toSegments,
-  type Segment,
-} from '@aloud/core/stream/transcript';
+import { contains, localStamp, toMarkdown, type Segment } from '@aloud/core/stream/transcript';
 import { pickKeyLines } from '@aloud/core/summary/select';
 import type { AudioFrame, AudioSource } from '@aloud/core/audio/source';
 import { Archive } from '../history/archive';
@@ -160,14 +153,14 @@ export class SessionStore {
       if (generation !== this.generation) return;
 
       const transcriber = new StreamingTranscriber(source, vad, asr, {
-        chunker: { stepSeconds: this.windowStep() },
+        segmenter: { stepSeconds: this.windowStep() },
         transcribe: {
           task: this.sessionTranslated ? 'translate' : 'transcribe',
           ...(this.sessionLanguage ? { language: this.sessionLanguage } : {}),
         },
         onUpdate: (update) => {
-          this.segments.set(toSegments(update.confirmed));
-          this.pending.set(textOf(update.pending));
+          this.segments.set(update.confirmed);
+          this.pending.set(update.pending);
           this.passes.set(update.passes);
           this.backlog.set(update.backlogSeconds);
           this.lag.set(update.confirmedLagSeconds);

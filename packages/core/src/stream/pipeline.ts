@@ -2,8 +2,9 @@ import type { TranscribeOptions } from '../asr/protocol';
 import type { AsrClient } from '../asr/worker-client';
 import type { AudioFrame, AudioSource } from '../audio/source';
 import type { VadClient } from '../vad/worker-client';
-import { Chunker, type AudioWindow, type ChunkerOptions } from './chunker';
-import { Stabilizer, type StabilizerState } from './stabilize';
+import { trimLoop } from './repeats';
+import { Segmenter, type SegmenterOptions, type Utterance } from './segmenter';
+import type { Segment } from './transcript';
 
 const DEFAULT_BACKPRESSURE = 5;
 
@@ -11,9 +12,14 @@ const DEFAULT_BACKPRESSURE = 5;
 type Vad = Pick<VadClient, 'reset' | 'classify'>;
 type Asr = Pick<AsrClient, 'transcribe'>;
 
-export type StreamUpdate = StabilizerState & {
-  /** Seconds of audio that have not been through the model yet. */
+export type StreamUpdate = {
+  /** Lines the model has had its final say on. They will not change again. */
+  readonly confirmed: readonly Segment[];
+  /** The current guess at the line still being spoken. Expect it to be rewritten. */
+  readonly pending: string;
+  /** Seconds of finished lines still waiting for the model. */
   readonly backlogSeconds: number;
+  /** How long after the latest line ended its text was final. */
   readonly confirmedLagSeconds: number;
   readonly heardSeconds: number;
   /** Model time spent on every pass so far, summed here once rather than by each listener. */
@@ -22,30 +28,35 @@ export type StreamUpdate = StabilizerState & {
 };
 
 export type StreamingOptions = {
-  readonly chunker?: ChunkerOptions;
+  readonly segmenter?: SegmenterOptions;
   readonly transcribe?: TranscribeOptions;
   /**
-   * Once this much audio is waiting, a source that can wait is held until the pass in flight
-   * finishes. A live one never is: holding it would only hide the backlog in a queue of frames.
+   * Once this many seconds of lines are waiting, a source that can wait is held until the
+   * pass in flight finishes. A live one never is: holding it would only hide the backlog in a
+   * queue of frames.
    */
   readonly backpressureSeconds?: number;
   readonly onUpdate: (update: StreamUpdate) => void;
   readonly onError?: (error: unknown) => void;
 };
 
+type Pass = { readonly utterance: Utterance; readonly final: boolean };
+
 /**
- * Joins the parts up: frames from a source, a speech flag from the detector, windows from the
- * chunker, hypotheses from the model, and one growing transcript out of the stabiliser.
- * Exactly one inference runs at a time; while it does, audio keeps arriving and the next
- * window simply gets longer. That backlog is reported rather than hidden, because a machine
- * that cannot keep up should say so instead of falling quietly behind.
+ * Joins the parts up: frames from a source, a speech flag from the detector, lines from the
+ * segmenter, text from the model. Exactly one pass runs at a time, and a finished line always
+ * goes before another guess at the one still being spoken.
  */
 export class StreamingTranscriber {
-  private readonly chunker: Chunker;
-  private readonly stabilizer = new Stabilizer();
+  private readonly segmenter: Segmenter;
+  private readonly lines: Segment[] = [];
 
   private frames: Promise<void> = Promise.resolve();
   private inFlight: Promise<void> | null = null;
+  private inFlightSeconds = 0;
+  private guess = '';
+  private guessFor = 0;
+  private lagSeconds = 0;
   private computeMs = 0;
   private passes = 0;
   private done: () => void = () => {};
@@ -64,7 +75,7 @@ export class StreamingTranscriber {
     this.vad = vad;
     this.asr = asr;
     this.options = options;
-    this.chunker = new Chunker(options.chunker);
+    this.segmenter = new Segmenter(options.segmenter);
   }
 
   async start(): Promise<void> {
@@ -84,15 +95,19 @@ export class StreamingTranscriber {
     await this.finished;
   }
 
+  private get backlogSeconds(): number {
+    return this.segmenter.queuedSeconds + this.inFlightSeconds;
+  }
+
   private accept(frame: AudioFrame): Promise<void> {
     this.frames = this.frames
       .then(async () => {
         const verdict = await this.vad.classify(frame.samples);
-        this.chunker.push(frame, verdict.speech);
+        this.segmenter.push(frame, verdict.speech);
         this.pump();
 
         const limit = this.options.backpressureSeconds ?? DEFAULT_BACKPRESSURE;
-        if (!this.source.live && this.inFlight && this.chunker.backlogSeconds > limit) {
+        if (!this.source.live && this.inFlight && this.backlogSeconds > limit) {
           await this.inFlight;
         }
       })
@@ -104,62 +119,63 @@ export class StreamingTranscriber {
   private pump(): void {
     if (this.inFlight) return;
 
-    const window = this.chunker.take();
-    if (!window) return;
+    const final = this.segmenter.takeFinal();
+    // A guess is for someone watching the words arrive. A file read flat out gets finals only.
+    const utterance = final ?? (this.source.live ? this.segmenter.takeGuess() : null);
+    if (!utterance) return;
 
-    this.inFlight = this.run(window)
+    this.inFlight = this.run({ utterance, final: final !== null })
       .catch((error: unknown) => this.options.onError?.(error))
       .finally(() => {
         this.inFlight = null;
+        this.inFlightSeconds = 0;
         this.pump();
       });
   }
 
-  private async run(window: AudioWindow): Promise<void> {
-    const started = performance.now();
-    const result = await this.asr.transcribe(window.samples, {
-      ...this.options.transcribe,
-      timestamps: 'word',
-    });
+  private async run({ utterance, final }: Pass): Promise<void> {
+    if (final) this.inFlightSeconds = utterance.end - utterance.start;
 
+    const started = performance.now();
+    const result = await this.asr.transcribe(utterance.samples, { ...this.options.transcribe });
     this.computeMs += performance.now() - started;
     this.passes++;
 
-    const state = this.stabilizer.push(
-      result.transcript.chunks.map((chunk) => ({
-        text: chunk.text,
-        start: window.start + chunk.start,
-        end: window.start + chunk.end,
-      })),
-    );
+    const text = trimLoop(result.transcript.text);
+    if (final) {
+      if (text) this.lines.push({ start: utterance.start, end: utterance.end, text });
+      if (this.guessFor === utterance.id) this.guess = '';
+      this.lagSeconds = Math.max(0, this.segmenter.heardUntil - utterance.end);
+    } else {
+      this.guess = text;
+      this.guessFor = utterance.id;
+    }
 
-    this.chunker.commit(this.stabilizer.keepAudioFrom);
-    this.emit(state);
+    this.emit();
   }
 
   private async drain(): Promise<void> {
     await this.frames;
-    // A pass that finishes calls pump(), which may start the next one, so one await is not
-    // enough: flushing while that next pass runs would send the same audio twice.
+    this.segmenter.flush();
+    this.pump();
+    // A pass that finishes calls pump(), which starts the next line, so one await is not
+    // enough: finishing while that pass runs would lose the last line.
     while (this.inFlight) {
       await this.inFlight;
     }
 
-    const last = this.chunker.flush();
-    if (last) {
-      await this.run(last).catch((error: unknown) => this.options.onError?.(error));
-    }
-
-    this.emit(this.stabilizer.finish());
+    this.guess = '';
+    this.emit();
     this.done();
   }
 
-  private emit(state: StabilizerState): void {
+  private emit(): void {
     this.options.onUpdate({
-      ...state,
-      backlogSeconds: this.chunker.backlogSeconds,
-      confirmedLagSeconds: Math.max(0, this.chunker.heardUntil - this.stabilizer.confirmedUntil),
-      heardSeconds: this.chunker.heardUntil,
+      confirmed: [...this.lines],
+      pending: this.guess,
+      backlogSeconds: this.backlogSeconds,
+      confirmedLagSeconds: this.lagSeconds,
+      heardSeconds: this.segmenter.heardUntil,
       computeMs: this.computeMs,
       passes: this.passes,
     });

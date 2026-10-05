@@ -7,7 +7,6 @@ import { loadEngines } from '@aloud/core/engines';
 import { unwrap } from '@aloud/core/errors';
 import { retry } from '@aloud/core/retry';
 import { StreamingTranscriber } from '@aloud/core/stream/pipeline';
-import { textOf } from '@aloud/core/stream/stabilize';
 import type { VadClient } from '@aloud/core/vad/worker-client';
 
 export type RunConfig = {
@@ -94,8 +93,10 @@ async function run(config: RunConfig): Promise<RunResult> {
   let heard = 0;
   let text = '';
 
+  let lines = 0;
+
   const transcriber = new StreamingTranscriber(source, vad, asr, {
-    chunker: { stepSeconds: config.stepSeconds },
+    segmenter: { stepSeconds: config.stepSeconds },
     transcribe: {
       ...(config.language ? { language: config.language } : {}),
     },
@@ -103,8 +104,10 @@ async function run(config: RunConfig): Promise<RunResult> {
       computeMs = update.computeMs;
       passes = update.passes;
       heard = update.heardSeconds;
-      text = textOf(update.confirmed);
-      if (update.confirmedLagSeconds > 0) {
+      text = update.confirmed.map((line) => line.text).join(' ');
+      // One lag per line, taken when it lands: a guess repeats the figure without adding one.
+      if (update.confirmed.length > lines) {
+        lines = update.confirmed.length;
         lagSeconds.push(update.confirmedLagSeconds);
       }
     },
