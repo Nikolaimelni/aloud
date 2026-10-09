@@ -2,6 +2,9 @@ import { Injectable, signal } from '@angular/core';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import * as z from 'zod';
 
+// Otherwise zod probes for eval with new Function(""), and the CSP reports every probe.
+z.config({ jitless: true });
+
 /** An hour of 16 kHz audio is about 115 MB, so ten long meetings already run to a gigabyte. */
 const KEEP = 10;
 
