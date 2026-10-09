@@ -4,7 +4,7 @@ Live speech transcription that runs entirely in the browser. A 32 MB model is fe
 evaluated on your own machine, the audio never leaves the tab, and the transcript fills in
 while you are still talking. English only.
 
-![Confirmed text in black, the current guess in amber, and the meters underneath](docs/screenshot.png)
+![A file playing at real speed: the first line settled in black, the next still an amber guess](docs/screenshot.png)
 
 ## Why
 

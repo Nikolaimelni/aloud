@@ -3,30 +3,31 @@
 }
 
 .panel {
-  display: block;
-  margin-top: 18px;
-  padding: 22px;
+  padding: 18px 20px;
   border: 1px solid var(--rule);
-  background: var(--surface);
+  border-radius: 10px;
+  background: var(--card);
 }
 
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 14px;
-  margin-bottom: 12px;
+  gap: 4px 14px;
+  margin-bottom: 8px;
 }
 
 h2 {
   margin: 0;
-  font-size: 18px;
+  font:
+    600 20px var(--serif),
+    serif;
 }
 
 .size {
   flex: 1;
-  font-size: 12px;
+  font: 12.5px var(--mono);
   color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
 }
 
 .list {
@@ -37,68 +38,78 @@ h2 {
   li {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     border-top: 1px solid var(--rule);
   }
 }
 
 .row {
+  display: grid;
   flex: 1;
-  display: flex;
+  grid-template-columns: 128px 52px 1fr;
   align-items: baseline;
-  gap: 14px;
-  padding: 10px 0;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 0;
   border: 0;
-  border-radius: 0;
   background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 13.5px;
   text-align: left;
-  cursor: pointer;
 
-  &:disabled {
-    opacity: 0.55;
-    cursor: default;
+  &:hover:not(:disabled) .preview {
+    color: var(--ink);
   }
 }
 
+.when,
+.length {
+  font: 12.5px var(--mono);
+  color: var(--ink-3);
+}
+
 .when {
-  flex: none;
-  width: 116px;
   color: var(--ink-2);
 }
 
-.length {
-  flex: none;
-  width: 54px;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
 .preview {
-  color: var(--ink-3);
   overflow: hidden;
+  font: 16px var(--serif);
+  color: var(--ink-2);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.head .plain {
+  margin-left: auto;
+}
+
 .plain {
-  padding: 4px 8px;
+  padding: 8px;
   border: 0;
   background: none;
+  font-size: 13px;
   color: var(--ink-3);
-  font-size: 12px;
-  cursor: pointer;
 
   &:hover {
-    color: var(--alarm);
+    color: var(--rec);
   }
 }
 
-.note {
-  margin: 14px 0 0;
-  max-width: 58ch;
-  font-size: 12.5px;
-  color: var(--ink-3);
+@media (max-width: 640px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .size {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .row {
+    grid-template-columns: auto 1fr;
+
+    .preview {
+      grid-column: 1 / -1;
+      white-space: normal;
+    }
+  }
 }

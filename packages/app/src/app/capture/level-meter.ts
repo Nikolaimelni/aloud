@@ -20,7 +20,7 @@ const GAP = 2;
     canvas {
       display: block;
       width: 100%;
-      height: 72px;
+      height: 44px;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -49,7 +49,7 @@ export class LevelMeter {
 
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, width, height);
-    context.fillStyle = getComputedStyle(canvas).getPropertyValue('--accent');
+    context.fillStyle = getComputedStyle(canvas).getPropertyValue('--meter');
 
     // Newest bar sits at the right edge and the rest scroll off to the left.
     const visible = Math.floor(width / (BAR + GAP));

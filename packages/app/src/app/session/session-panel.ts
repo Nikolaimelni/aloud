@@ -2,17 +2,17 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  type ElementRef,
   inject,
   signal,
   viewChild,
 } from '@angular/core';
-import { isModelSize, MODEL_SIZES, MODELS, type ModelSize } from '@aloud/core/asr/models';
+import { MODELS } from '@aloud/core/asr/models';
 import { clock } from '@aloud/core/stream/transcript';
 import { EMBEDDING_SIZE_MB } from '@aloud/core/summary/model';
 import { LevelMeter } from '../capture/level-meter';
-import { ModelSettings, PRECISIONS } from '../model/model-settings';
 import { ModelHost } from '../model/model-host';
+import { ModelSettings } from '../model/model-settings';
+import { RecordingPlayer } from './recording-player';
 import { SessionStore, type SourceKind } from './session-store';
 import { TranscriptView } from './transcript-view';
 
@@ -26,27 +26,25 @@ const SOURCES: readonly SourceOption[] = [
   {
     kind: 'microphone',
     label: 'Microphone',
-    about: 'Whatever the browser hears. Speak and the text follows a few seconds behind.',
+    about:
+      'Whatever this device hears. Talk, pause, and each line settles a moment after you stop.',
   },
   {
     kind: 'tab',
     label: 'Another tab',
     about:
-      'Pick a tab in the share dialog and tick "share tab audio". This is the one that works on a real call.',
+      'A call or a video playing in another tab. Pick that tab in the share dialog and leave "Share tab audio" on.',
   },
   {
     kind: 'file',
     label: 'A file',
-    about: 'A WAV pushed through the same pipeline, optionally faster than it was recorded.',
+    about: 'A WAV recording up to 500 MB, read through the same steps as live audio.',
   },
 ];
 
-/** Seconds. A typed value gets past an input's min and max, so setStep clamps to these too. */
-const STEP_RANGE = { min: 0.5, max: 10 } as const;
-
 @Component({
   selector: 'aloud-session',
-  imports: [LevelMeter, TranscriptView],
+  imports: [LevelMeter, RecordingPlayer, TranscriptView],
   templateUrl: './session-panel.html',
   styleUrl: './session-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,33 +52,64 @@ const STEP_RANGE = { min: 0.5, max: 10 } as const;
 export class SessionPanel {
   protected readonly store = inject(SessionStore);
   protected readonly host = inject(ModelHost);
-  protected readonly settings = inject(ModelSettings);
+  private readonly settings = inject(ModelSettings);
 
   protected readonly sources = SOURCES;
-  protected readonly sizes = MODEL_SIZES;
-  protected readonly precisions = PRECISIONS;
-  protected readonly stepRange = STEP_RANGE;
+  protected readonly clock = clock;
   protected readonly playhead = signal(0);
 
-  private readonly player = viewChild<ElementRef<HTMLAudioElement>>('player');
+  private readonly player = viewChild(RecordingPlayer);
 
   protected readonly about = computed(
     () => SOURCES.find((source) => source.kind === this.store.source())?.about ?? '',
   );
 
-  protected readonly sizeMb = computed(() => this.sizeOf(this.settings.model()));
+  protected readonly headline = computed(() => {
+    if (this.host.loading()) {
+      return this.host.download() ? 'Downloading the model' : 'Starting the model';
+    }
+    if (this.store.paused()) return 'Paused';
+    if (this.store.listening()) {
+      if (this.store.source() !== 'file') return 'Listening';
+      return this.store.fasterThanReal() ? 'Reading the file' : 'Playing the file';
+    }
+    return this.store.source() === 'file' ? 'Choose a recording' : 'Start listening';
+  });
 
-  protected readonly startLabel = computed(() =>
-    this.host.hasWeights() ? 'Start listening' : `Download ${this.sizeMb()} MB and start`,
-  );
+  protected readonly subline = computed(() => {
+    const progress = this.host.download();
+    if (progress) {
+      return `${megabytes(progress.loaded)} of ${megabytes(progress.total)} MB. This happens once; the browser keeps it.`;
+    }
+    if (this.store.listening()) return `${clock(this.store.heard())} heard`;
+    if (this.store.source() === 'file') return '';
+    return this.host.hasWeights()
+      ? 'The model is loaded.'
+      : `The first start downloads ${MODELS[this.settings.model()].sizeMb} MB, once.`;
+  });
 
-  protected sizeOf(size: ModelSize): number {
-    return MODELS[size].sizeMb;
-  }
+  /** One sentence on how it is coping. The four numbers behind it are a click away. */
+  protected readonly pace = computed(() => {
+    const store = this.store;
+    if (store.passes() === 0) return '';
+    if (store.fallingBehind()) {
+      return `Falling behind: ${seconds(store.backlog())} s of speech is waiting to be read. The fast model keeps up more easily.`;
+    }
+    if (store.listening()) {
+      return store.source() === 'file' && store.fasterThanReal()
+        ? 'Reading as fast as this machine goes.'
+        : `Keeping up. The last line settled ${seconds(store.lag())} s after it ended.`;
+    }
+    const lines = store.segments().length;
+    return `${lines} ${lines === 1 ? 'line' : 'lines'} from ${clock(store.heard())} of audio.`;
+  });
 
-  protected readonly placeholder = computed(() =>
-    this.store.listening() ? 'Listening.' : 'Nothing yet.',
-  );
+  protected readonly placeholder = computed(() => {
+    if (this.store.listening()) return 'Listening. Lines appear here as they are said.';
+    return this.store.source() === 'file'
+      ? 'Lines from the recording will appear here.'
+      : 'Press the red button and say something.';
+  });
 
   protected readonly summariseLabel = computed(() =>
     this.store.summaryLoaded() ? 'Summarise' : `Summarise (${EMBEDDING_SIZE_MB} MB)`,
@@ -91,7 +120,10 @@ export class SessionPanel {
   );
 
   protected choose(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0];
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    // Cleared so that picking the same file again still counts as a change.
+    input.value = '';
     if (file) void this.store.start(file);
   }
 
@@ -100,14 +132,7 @@ export class SessionPanel {
   }
 
   protected seekTo(seconds: number): void {
-    const audio = this.player()?.nativeElement;
-    if (!audio) return;
-    audio.currentTime = seconds;
-    void audio.play();
-  }
-
-  protected trackPlayhead(): void {
-    this.playhead.set(this.player()?.nativeElement.currentTime ?? 0);
+    this.player()?.seek(seconds);
   }
 
   protected download(): void {
@@ -117,48 +142,20 @@ export class SessionPanel {
     link.href = url;
     link.download = this.store.filename();
     link.click();
-    URL.revokeObjectURL(url);
+    // Revoked on the next task: some browsers start reading the blob only after click() returns.
+    setTimeout(() => URL.revokeObjectURL(url));
   }
 
   protected setQuery(event: Event): void {
-    this.store.query.set(value(event));
-  }
-
-  protected setModel(event: Event): void {
-    const chosen = value(event);
-    if (isModelSize(chosen)) this.settings.model.set(chosen);
-  }
-
-  protected setPrecision(event: Event): void {
-    for (const precision of PRECISIONS) {
-      if (precision === value(event)) this.settings.precision.set(precision);
-    }
-  }
-
-  protected setStep(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const step = Number(input.value);
-    if (input.value.trim() !== '' && Number.isFinite(step)) {
-      this.store.windowStep.set(Math.min(STEP_RANGE.max, Math.max(STEP_RANGE.min, step)));
-    }
-    // The binding only redraws on a change, so a clamp back to the same value would not show.
-    input.value = String(this.store.windowStep());
+    this.store.query.set((event.target as HTMLInputElement).value);
   }
 
   protected setSpeed(event: Event): void {
     this.store.fasterThanReal.set((event.target as HTMLInputElement).checked);
   }
 
-  protected stamp(at: number): string {
-    return clock(at);
-  }
-
-  protected megabytes(bytes: number): string {
-    return (bytes / 1_000_000).toFixed(0);
-  }
-
   protected seconds(value: number): string {
-    return value.toFixed(1);
+    return seconds(value);
   }
 
   protected factor(value: number | null): string {
@@ -166,6 +163,10 @@ export class SessionPanel {
   }
 }
 
-function value(event: Event): string {
-  return (event.target as HTMLInputElement | HTMLSelectElement).value;
+function megabytes(bytes: number): string {
+  return (bytes / 1_000_000).toFixed(0);
+}
+
+function seconds(value: number): string {
+  return value.toFixed(1);
 }

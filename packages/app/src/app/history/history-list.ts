@@ -22,28 +22,37 @@ export class HistoryList implements OnInit {
   });
 
   ngOnInit(): void {
-    void this.archive.refresh();
+    this.attempt(this.archive.refresh());
   }
 
   protected open(id: string): void {
-    void this.session.reopen(id);
+    this.attempt(this.session.reopen(id));
   }
 
   protected remove(id: string, event: Event): void {
     event.stopPropagation();
-    void this.archive.remove(id);
+    this.attempt(this.archive.remove(id));
   }
 
   protected clear(): void {
     const count = this.archive.sessions().length;
     const what = count === 1 ? 'the saved session' : `all ${count} saved sessions`;
     if (confirm(`Delete ${what}, audio included? There is no undo.`)) {
-      void this.archive.clear();
+      this.attempt(this.archive.clear());
     }
   }
 
+  /** IndexedDB refuses in some private windows and on a full disk. Saying so beats doing nothing. */
+  private attempt(work: Promise<void>): void {
+    work.catch((cause: unknown) => {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      this.session.error.set(`The saved sessions could not be read or changed: ${reason}`);
+    });
+  }
+
   protected when(at: number): string {
-    return new Date(at).toLocaleString(undefined, {
+    // The interface is English, so the date is too, whatever the browser speaks.
+    return new Date(at).toLocaleString('en-GB', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

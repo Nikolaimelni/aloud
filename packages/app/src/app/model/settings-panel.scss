@@ -1,0 +1,95 @@
+:host {
+  display: block;
+}
+
+.settings {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 0 20px;
+
+  &[open] {
+    padding-bottom: 20px;
+  }
+}
+
+summary {
+  padding: 14px 0;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.models {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  legend {
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+}
+
+.model {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  cursor: pointer;
+
+  &.on {
+    border-color: var(--ink);
+  }
+
+  input {
+    grid-row: span 2;
+    align-self: start;
+    margin: 5px 0 0;
+    accent-color: var(--ink);
+  }
+
+  .hint {
+    margin: 0;
+  }
+}
+
+.title {
+  font-weight: 600;
+}
+
+.size {
+  margin-left: 4px;
+  font: 12.5px var(--mono);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.advanced {
+  margin-top: 16px;
+  padding-top: 4px;
+  border-top: 1px solid var(--rule);
+
+  summary {
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.step {
+  width: 84px;
+}

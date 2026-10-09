@@ -1,0 +1,49 @@
+:host {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px 8px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.glyph {
+  width: 11px;
+  height: 12px;
+  margin-left: 2px;
+  background: var(--card);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+
+  &.pause {
+    width: 10px;
+    margin-left: 0;
+    border-right: 3px solid var(--card);
+    border-left: 3px solid var(--card);
+    background: none;
+    clip-path: none;
+  }
+}
+
+.scrub {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--ink);
+}
+
+.time {
+  flex: none;
+  font: 12.5px var(--mono);
+  color: var(--ink-3);
+}

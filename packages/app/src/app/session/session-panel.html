@@ -1,213 +1,166 @@
-<div class="sources" role="group" aria-label="Audio source">
-  @for (option of sources; track option.kind) {
-    <button
-      type="button"
-      class="source"
-      [class.on]="store.source() === option.kind"
-      [disabled]="store.listening()"
-      (click)="pickSource(option.kind)"
-    >
-      {{ option.label }}
-    </button>
-  }
-</div>
-
-<p class="about">{{ about() }}</p>
-
-<div class="controls">
-  @if (store.source() === 'file') {
-    <input
-      class="file"
-      type="file"
-      accept=".wav,audio/wav"
-      [disabled]="store.listening()"
-      (change)="choose($event)"
-    />
-    <label class="check">
-      <input
-        type="checkbox"
-        [checked]="store.fasterThanReal()"
+<section class="deck">
+  <div class="sources" role="radiogroup" aria-label="Listen to">
+    @for (option of sources; track option.kind) {
+      <button
+        type="button"
+        role="radio"
+        class="source"
+        [attr.aria-checked]="store.source() === option.kind"
         [disabled]="store.listening()"
-        (change)="setSpeed($event)"
-      />
-      faster than real time
-    </label>
+        (click)="pickSource(option.kind)"
+      >
+        {{ option.label }}
+      </button>
+    }
+  </div>
+  <p class="hint about">{{ about() }}</p>
+
+  <div class="recorder">
+    @if (store.listening()) {
+      <button type="button" class="rec on" aria-label="Stop" (click)="store.stop()">
+        <span class="glyph"></span>
+      </button>
+    } @else if (store.source() !== 'file') {
+      <button type="button" class="rec" aria-label="Start listening" (click)="store.start()">
+        <span class="glyph"></span>
+      </button>
+    }
+
+    <div class="state">
+      <p class="headline">{{ headline() }}</p>
+      @if (subline()) {
+        <p class="hint">{{ subline() }}</p>
+      }
+      @if (host.download(); as progress) {
+        <progress [value]="progress.loaded" [max]="progress.total"></progress>
+      }
+
+      @if (store.source() === 'file' && !store.listening()) {
+        <div class="file">
+          <label class="button pick">
+            Choose a WAV file
+            <input type="file" accept=".wav,audio/wav" (change)="choose($event)" />
+          </label>
+          <label class="check">
+            <input type="checkbox" [checked]="store.fasterThanReal()" (change)="setSpeed($event)" />
+            As fast as possible
+          </label>
+        </div>
+        <p class="hint">Untick it to play the file at real speed, the way live audio arrives.</p>
+      }
+    </div>
+
+    @if (store.listening() && store.source() !== 'file') {
+      <aloud-level-meter class="meter" [history]="store.levels()" />
+    }
+  </div>
+
+  @if (store.paused()) {
+    <p class="notice">
+      The browser stopped the audio while this tab was in the background, and nothing was heard in
+      the meantime. Come back to the tab and it picks up again.
+    </p>
   }
+
+  @if (store.error(); as text) {
+    <p class="notice error" role="alert">{{ text }}</p>
+  }
+
+  @if (done()) {
+    <div class="toolbar">
+      <label class="search">
+        <span class="offscreen">Search the transcript</span>
+        <input
+          class="field"
+          type="search"
+          placeholder="Search the transcript"
+          [value]="store.query()"
+          (input)="setQuery($event)"
+        />
+      </label>
+      @if (store.query().trim()) {
+        <span class="count">{{ store.matches().length }} of {{ store.segments().length }}</span>
+      }
+      <button
+        type="button"
+        class="button"
+        [disabled]="store.summarising()"
+        (click)="store.summarise()"
+      >
+        {{ store.summarising() ? 'Reading it back' : summariseLabel() }}
+      </button>
+      <button type="button" class="button" (click)="download()">Export Markdown</button>
+    </div>
+  }
+
+  @if (store.summary().length > 0) {
+    <aside class="gist">
+      <h3>The gist</h3>
+      <ul>
+        @for (line of store.summary(); track line.start) {
+          <li>
+            <button type="button" class="stamp" (click)="seekTo(line.start)">
+              {{ clock(line.start) }}
+            </button>
+            <span>{{ line.text }}</span>
+          </li>
+        }
+      </ul>
+      <p class="hint">Picked out of the transcript as it was said, not rewritten.</p>
+    </aside>
+  }
+
+  <div class="paper">
+    <aloud-transcript
+      [segments]="store.segments()"
+      [pending]="store.pending()"
+      [query]="store.query()"
+      [playhead]="playhead()"
+      [placeholder]="placeholder()"
+      (seek)="seekTo($event)"
+    />
+  </div>
 
   @if (store.listening()) {
-    <button type="button" class="primary" (click)="store.stop()">Stop</button>
-  } @else if (store.source() !== 'file') {
-    <button type="button" class="primary" (click)="store.start()">{{ startLabel() }}</button>
+    <p class="legend">
+      <span><span class="swatch"></span>settled</span>
+      <span><span class="swatch guess"></span>still being said</span>
+    </p>
   }
-</div>
 
-@if (host.loading()) {
-  <div class="loading">
-    @if (host.download(); as progress) {
-      <p>
-        Downloading the model, {{ megabytes(progress.loaded) }} of
-        {{ megabytes(progress.total) }} MB
-      </p>
-      <progress [value]="progress.loaded" [max]="progress.total"></progress>
-    } @else {
-      <p>
-        Starting the model. Moonshine {{ settings.model() }} is about {{ sizeMb() }} MB the first
-        time and cached afterwards.
-      </p>
-    }
-    <p class="warn">On a phone plan, wait for wi-fi.</p>
-  </div>
-}
+  @if (store.recording(); as audio) {
+    <aloud-player class="player" [src]="audio" (position)="playhead.set($event)" />
+    <p class="hint">Click a time to hear that line again. The recording stays in this browser.</p>
+  }
 
-@if (store.paused()) {
-  <p class="paused" role="status">
-    The browser suspended the audio while this tab was in the background. Nothing was recorded in
-    the meantime; come back to the tab and it picks up again.
-  </p>
-}
-
-@if (store.error(); as text) {
-  <p class="error" role="alert">{{ text }}</p>
-}
-
-@if (store.listening() && store.source() !== 'file') {
-  <aloud-level-meter [history]="store.levels()" />
-}
-
-@if (done()) {
-  <div class="toolbar">
-    <input
-      type="search"
-      class="search"
-      placeholder="Search the transcript"
-      [value]="store.query()"
-      (input)="setQuery($event)"
-    />
-    @if (store.query().trim()) {
-      <span class="count">{{ store.matches().length }} of {{ store.segments().length }} lines</span>
-    }
-    <button type="button" [disabled]="store.summarising()" (click)="store.summarise()">
-      {{ store.summarising() ? 'Reading it back' : summariseLabel() }}
-    </button>
-    <button type="button" (click)="download()">Export Markdown</button>
-  </div>
-}
-
-@if (store.summary().length > 0) {
-  <div class="gist">
-    <h3>The gist</h3>
-    <ul>
-      @for (line of store.summary(); track line.start) {
-        <li>
-          <button type="button" class="stamp" (click)="seekTo(line.start)">
-            {{ stamp(line.start) }}
-          </button>
-          {{ line.text }}
-        </li>
-      }
-    </ul>
-    <p class="note">Lines lifted out of the transcript by similarity, not rewritten.</p>
-  </div>
-}
-
-<aloud-transcript
-  [segments]="store.segments()"
-  [pending]="store.pending()"
-  [query]="store.query()"
-  [playhead]="playhead()"
-  [placeholder]="placeholder()"
-  (seek)="seekTo($event)"
-/>
-
-<p class="legend">
-  <span class="swatch confirmed"></span> final, the line has ended
-  <span class="swatch guess"></span> still a guess
-</p>
-
-@if (store.recording(); as audio) {
-  <audio
-    #player
-    class="player"
-    controls
-    preload="metadata"
-    [src]="audio"
-    (timeupdate)="trackPlayhead()"
-  ></audio>
-  <p class="note">Click a timestamp to jump there. The recording never left the browser.</p>
-}
-
-@if (store.fallingBehind()) {
-  <p class="paused" role="status">
-    The model is not keeping up: {{ seconds(store.backlog()) }} seconds of audio are waiting. A
-    smaller model will help, or point this at a recording instead of a live microphone.
-  </p>
-}
-
-@if (store.passes() > 0) {
-  <dl class="meters">
-    <div>
-      <dt>real-time factor</dt>
-      <dd>{{ factor(store.realTimeFactor()) }}</dd>
+  @if (pace()) {
+    <div class="pace">
+      <p [class.behind]="store.fallingBehind()">{{ pace() }}</p>
+      <details class="numbers">
+        <summary>The numbers</summary>
+        <dl>
+          <div>
+            <dt>Work per second of audio</dt>
+            <dd class="value">{{ factor(store.realTimeFactor()) }}</dd>
+            <dd class="hint">Under 1 keeps up with someone talking.</dd>
+          </div>
+          <div>
+            <dt>Last line settled after</dt>
+            <dd class="value">{{ seconds(store.lag()) }} s</dd>
+            <dd class="hint">From the end of a line to its final text.</dd>
+          </div>
+          <div>
+            <dt>Waiting</dt>
+            <dd class="value">{{ seconds(store.backlog()) }} s</dd>
+            <dd class="hint">Speech that is heard but not read yet.</dd>
+          </div>
+          <div>
+            <dt>Passes</dt>
+            <dd class="value">{{ store.passes() }}</dd>
+            <dd class="hint">Times the model has run, guesses included.</dd>
+          </div>
+        </dl>
+      </details>
     </div>
-    <div>
-      <dt>confirmed lag</dt>
-      <dd>{{ seconds(store.lag()) }} s</dd>
-    </div>
-    <div>
-      <dt>backlog</dt>
-      <dd>{{ seconds(store.backlog()) }} s</dd>
-    </div>
-    <div>
-      <dt>passes</dt>
-      <dd>{{ store.passes() }}</dd>
-    </div>
-  </dl>
-}
-
-<details class="settings">
-  <summary>Model and window</summary>
-
-  <div class="options">
-    <label>
-      Model
-      <select [value]="settings.model()" [disabled]="store.listening()" (change)="setModel($event)">
-        @for (size of sizes; track size) {
-          <option [value]="size">Moonshine {{ size }} ({{ sizeOf(size) }} MB)</option>
-        }
-      </select>
-    </label>
-
-    <label>
-      Precision
-      <select
-        [value]="settings.precision()"
-        [disabled]="store.listening()"
-        (change)="setPrecision($event)"
-      >
-        @for (precision of precisions; track precision) {
-          <option [value]="precision">{{ precision }}</option>
-        }
-      </select>
-    </label>
-
-    <label>
-      Guess every
-      <input
-        type="number"
-        [attr.min]="stepRange.min"
-        [attr.max]="stepRange.max"
-        step="0.1"
-        size="4"
-        [value]="store.windowStep()"
-        [disabled]="store.listening()"
-        (change)="setStep($event)"
-      />
-      s
-    </label>
-  </div>
-
-  <p class="note">
-    How often the line still being spoken is read again. A line becomes final at the next pause
-    whatever this is set to; a shorter step only makes the guess livelier, and costs compute.
-  </p>
-</details>
+  }
+</section>

@@ -1,0 +1,64 @@
+<details class="settings">
+  <summary>Settings</summary>
+
+  <fieldset class="models" [disabled]="store.listening()">
+    <legend>Model</legend>
+    @for (option of models; track option.size) {
+      <label class="model" [class.on]="settings.model() === option.size">
+        <input
+          type="radio"
+          name="model"
+          [value]="option.size"
+          [checked]="settings.model() === option.size"
+          (change)="settings.model.set(option.size)"
+        />
+        <span class="title">
+          {{ option.name }} <span class="size">{{ option.sizeMb }} MB</span>
+        </span>
+        <span class="hint">{{ option.about }}</span>
+      </label>
+    }
+  </fieldset>
+  <p class="hint">Downloaded the first time it is used, then kept by the browser.</p>
+
+  <details class="advanced">
+    <summary>Advanced</summary>
+
+    <label class="row">
+      <span>Weights</span>
+      <select
+        class="field"
+        [value]="settings.precision()"
+        [disabled]="store.listening()"
+        (change)="setPrecision($event)"
+      >
+        @for (precision of precisions; track precision) {
+          <option [value]="precision">{{ precision }}</option>
+        }
+      </select>
+    </label>
+    <p class="hint">
+      auto means q8, the smallest download. The rest are there to compare against: q4 is bigger and
+      slower here, fp16 and fp32 bigger still.
+    </p>
+
+    <label class="row">
+      <span>New guess every</span>
+      <input
+        class="field step"
+        type="number"
+        [attr.min]="stepRange.min"
+        [attr.max]="stepRange.max"
+        step="0.1"
+        [value]="store.windowStep()"
+        [disabled]="store.listening()"
+        (change)="setStep($event)"
+      />
+      <span>seconds</span>
+    </label>
+    <p class="hint">
+      How often the line you are still saying is read again. It settles at the next pause either
+      way, so a shorter gap only makes the guess livelier, and costs more work.
+    </p>
+  </details>
+</details>

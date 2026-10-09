@@ -1,32 +1,37 @@
 :root {
   color-scheme: light dark;
 
-  --ground: #f4f3f8;
-  --surface: #ffffff;
-  --rule: #dad7e4;
-  --ink: #16141f;
-  --ink-2: #4e4a60;
-  --ink-3: #7e798f;
-  --accent: #4a42c2;
-  --alarm: #a32a2a;
-  --partial: #96631b;
-  --partial-soft: #f6ebd8;
-  --accent-soft: #e4e2f7;
+  --paper: #f5f2ea;
+  --card: #fffdf8;
+  --rule: #e2dccf;
+  --ink: #1c1a16;
+  --ink-2: #4f4a42;
+  --ink-3: #6e685e;
+  --rec: #c63d29;
+  --rec-ink: #fffdf8;
+  --guess: #9c590b;
+  --guess-soft: #f8ecd6;
+  --mark: #f6dc96;
+  --meter: #8a8376;
+
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ground: #100f16;
-    --surface: #17151f;
-    --rule: #272334;
-    --ink: #eceaf2;
-    --ink-2: #a9a4ba;
-    --ink-3: #7c7791;
-    --accent: #9b93f5;
-    --alarm: #e47c7c;
-    --partial: #d9a755;
-    --partial-soft: #2b2314;
-    --accent-soft: #1e1a33;
+    --paper: #141311;
+    --card: #1c1b18;
+    --rule: #2f2c27;
+    --ink: #ebe6dc;
+    --ink-2: #bdb6a9;
+    --ink-3: #958e82;
+    --rec: #ef5d47;
+    --rec-ink: #141311;
+    --guess: #e3a24b;
+    --guess-soft: #2d2417;
+    --mark: #5d4716;
+    --meter: #6f695f;
   }
 }
 
@@ -36,32 +41,102 @@
 
 body {
   margin: 0;
-  background: var(--ground);
+  background: var(--paper);
   color: var(--ink);
   font:
-    16px/1.6 system-ui,
+    16px/1.55 system-ui,
     -apple-system,
     'Segoe UI',
+    Roboto,
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
 }
 
 button {
-  font: inherit;
-  padding: 9px 20px;
-  border: 1px solid var(--accent);
-  border-radius: 2px;
-  background: var(--accent);
-  color: var(--surface);
   cursor: pointer;
 
   &:disabled {
-    opacity: 0.5;
     cursor: default;
+    opacity: 0.5;
   }
 }
 
+/* The quiet button. The one red button is drawn by the recorder itself. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--card);
+  font-size: 14px;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ink-3);
+  }
+}
+
+.field {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--card);
+}
+
+.hint {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+
+.notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--guess);
+  background: var(--guess-soft);
+  font-size: 14px;
+
+  &.error {
+    border-left-color: var(--rec);
+  }
+}
+
+/* Read out, never drawn. */
+.offscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

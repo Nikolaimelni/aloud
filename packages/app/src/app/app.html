@@ -1,12 +1,22 @@
-<p class="eyebrow">on-device speech</p>
-<h1>Aloud</h1>
-<p class="tagline">
-  Live transcription that never sends your audio anywhere. The model downloads once and runs on this
-  machine.
-</p>
+<header class="masthead">
+  <h1 class="name">
+    <span class="light" [class.on]="session.listening()" aria-hidden="true"></span>Aloud
+  </h1>
+  <p class="lede">
+    Live captions for whatever you are saying or hearing, written in the browser. The audio never
+    leaves this tab.
+  </p>
+</header>
 
-<section class="panel">
+<main>
   <aloud-session />
-</section>
+  <aloud-settings />
+  <aloud-history />
+</main>
 
-<aloud-history />
+<footer class="colophon">
+  <p>
+    Speech recognition by Moonshine, voice detection by Silero, both running here on your machine.
+    There is no account and nothing is uploaded.
+  </p>
+</footer>
