@@ -82,6 +82,10 @@ export class AsrClient {
     return vectors;
   }
 
+  get alive(): boolean {
+    return this.channel.alive;
+  }
+
   dispose(): void {
     this.channel.dispose();
   }

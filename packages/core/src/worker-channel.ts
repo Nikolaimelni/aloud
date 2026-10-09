@@ -53,6 +53,11 @@ export class WorkerChannel<Request extends { readonly id: number }, Reply extend
     };
   }
 
+  /** False once the worker died or was disposed. Nothing sent after that gets an answer. */
+  get alive(): boolean {
+    return this.dead === null;
+  }
+
   request(build: (id: number) => Request, transfer: Transferable[] = []): Promise<Reply> {
     if (this.dead) return Promise.reject(this.dead);
 

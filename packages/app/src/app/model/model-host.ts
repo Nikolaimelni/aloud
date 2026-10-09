@@ -46,8 +46,12 @@ export class ModelHost {
    * picker says now.
    */
   embed(texts: readonly string[]): Promise<Float32Array[]> {
-    const asr = this.loaded?.asr ?? (this.embedder ??= new AsrClient(asrWorker()));
-    return asr.embed(texts, RUNTIME_URL);
+    if (this.loaded?.asr.alive) return this.loaded.asr.embed(texts, RUNTIME_URL);
+    if (!this.embedder?.alive) {
+      this.embedder?.dispose();
+      this.embedder = new AsrClient(asrWorker());
+    }
+    return this.embedder.embed(texts, RUNTIME_URL);
   }
 
   /**
@@ -56,7 +60,8 @@ export class ModelHost {
    */
   async ready(): Promise<Loaded> {
     const key = this.settings.key();
-    if (this.loaded && this.loadedKey() === key) {
+    // A dead worker ends its session. Handing it to the next one would end that one at once.
+    if (this.loaded?.asr.alive && this.loaded.vad.alive && this.loadedKey() === key) {
       return this.loaded;
     }
 

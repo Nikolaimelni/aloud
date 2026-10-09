@@ -52,6 +52,10 @@ export class VadClient {
     return { speech: event.speech, probability: event.probability };
   }
 
+  get alive(): boolean {
+    return this.channel.alive;
+  }
+
   dispose(): void {
     this.channel.dispose();
   }
