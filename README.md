@@ -69,10 +69,10 @@ but not scored, which is how the two clips without transcripts earn their place.
 
 A line is final once the speaker pauses. About three quarters of a second of silence closes it,
 a quarter that the voice detector holds on after the last word and half a second the segmenter
-waits after that, then the model reads the whole line once more, and that text stays. Until then the line still being spoken is read again
-every step and shown as a guess. So confirmed text trails the end of a sentence by the pause
-plus one pass, however long the sentence was. Someone who never pauses gets cut at fifteen
-seconds, at the quietest moment near it.
+waits after that, then the model reads the whole line once more, and that text stays. Until
+then the line still being spoken is read again every step and shown as a guess. So confirmed
+text trails the end of a sentence by the pause plus one pass, however long the sentence was.
+Someone who never pauses gets cut at fifteen seconds, at the quietest moment near it.
 
 A Moonshine pass costs what the line is long, because its encoder reads the audio it is given.
 Whisper padded every window to thirty seconds and paid a second for a two-second line. That is
