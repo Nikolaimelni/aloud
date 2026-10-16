@@ -1,13 +1,15 @@
-# 'wasm-unsafe-eval' lets onnxruntime compile its WebAssembly and nothing more: JavaScript
-# eval stays off, which the WebGPU builds would not allow. connect-src lets huggingface.co
-# in only under the two orgs the models come from, because the rest of it is an API that
-# takes uploads. Files there redirect to /api/resolve-cache, which still loads: CSP stops
-# checking the path after a redirect. Weights redirect to the *.hf.co CDN. No *.huggingface.co:
-# that would let router. and api-inference. back in, which take uploads too.
+# 'wasm-unsafe-eval' lets onnxruntime compile its WebAssembly and nothing more: JavaScript eval
+# stays off, which the WebGPU builds would not allow. No blob: scripts or workers either:
+# transformers.js only makes one when it keeps its own copy of onnxruntime, and it is told not
+# to. connect-src lets huggingface.co in only under the two orgs the models come from, because
+# the rest of it is an API that takes uploads. Files there redirect to /api/resolve-cache,
+# which still loads: CSP stops checking the path after a redirect. Weights redirect to the
+# *.hf.co CDN. No *.huggingface.co: that would let router. and api-inference. back in, which
+# take uploads too.
 /*
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: credentialless
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' https://huggingface.co/onnx-community/ https://huggingface.co/Xenova/ https://*.hf.co; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://huggingface.co/onnx-community/ https://huggingface.co/Xenova/ https://*.hf.co; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: microphone=(self), display-capture=(self), camera=(), geolocation=()

@@ -96,6 +96,9 @@ export function serveRuntimeFrom(base: string): void {
     mjs: new URL('ort-wasm-simd-threaded.mjs', base).href,
     wasm: new URL('ort-wasm-simd-threaded.wasm', base).href,
   };
+  // The service worker already keeps these for offline use. Left on, transformers.js stores a
+  // second 14 MB copy in its own cache and imports the .mjs from a blob: URL.
+  env.useWasmCache = false;
 }
 
 async function detectDevice(): Promise<AsrDevice> {

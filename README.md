@@ -158,7 +158,9 @@ pnpm build
 pnpm dlx wrangler pages deploy packages/app/dist/app/browser --project-name aloud
 ```
 
-The build copies onnxruntime's plain WebAssembly build into `ort/`, 14 MB in one file.
+The build copies onnxruntime's plain WebAssembly build into `ort/`, 14 MB in one file. The
+service worker keeps it for offline use, and transformers.js is told not to keep a second copy
+of its own.
 
 ## Layout
 
