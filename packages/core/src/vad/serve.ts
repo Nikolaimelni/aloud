@@ -21,7 +21,7 @@ export function createVadHandler(
     try {
       if (request.kind === 'load') {
         const started = performance.now();
-        await detector.load(request.url, request.runtimeUrl);
+        await detector.load(request.url, request);
         gate = new SpeechGate(request.tuning);
         post({ kind: 'loaded', id: request.id, elapsedMs: performance.now() - started });
         return;

@@ -1,4 +1,5 @@
 import type { AloudErrorCode } from '../errors';
+import type { Fetching } from '../fetching';
 
 /**
  * Where the Silero weights live. Two megabytes, fetched once and cached by the browser. Pinned
@@ -17,14 +18,12 @@ export type VadTuning = {
 };
 
 export type VadRequest =
-  | {
+  | ({
       readonly kind: 'load';
       readonly id: number;
       readonly url: string;
       readonly tuning: VadTuning;
-      /** Where the page serves onnxruntime's wasm. Left out, it comes from jsDelivr. */
-      readonly runtimeUrl?: string;
-    }
+    } & Fetching)
   /** The worker outlives a session, and its LSTM state and gate should not. */
   | { readonly kind: 'reset'; readonly id: number }
   | { readonly kind: 'classify'; readonly id: number; readonly samples: Float32Array };

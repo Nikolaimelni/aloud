@@ -1,4 +1,5 @@
 import { AloudError } from '../errors';
+import type { Fetching } from '../fetching';
 import { WorkerChannel } from '../worker-channel';
 import { SILERO_VAD_URL, type VadEvent, type VadRequest, type VadTuning } from './protocol';
 
@@ -10,9 +11,7 @@ export type Verdict = {
 export type VadLoadOptions = {
   readonly tuning?: VadTuning;
   readonly url?: string;
-  /** Where the page serves onnxruntime's wasm. Left out, it comes from jsDelivr. */
-  readonly runtimeUrl?: string;
-};
+} & Fetching;
 
 export class VadClient {
   private readonly channel: WorkerChannel<VadRequest, VadEvent>;
@@ -22,13 +21,13 @@ export class VadClient {
   }
 
   async load(options: VadLoadOptions = {}): Promise<number> {
-    const { tuning = {}, url = SILERO_VAD_URL, runtimeUrl } = options;
+    const { tuning = {}, url = SILERO_VAD_URL, ...fetching } = options;
     const event = await this.channel.request((id) => ({
       kind: 'load',
       id,
       url,
       tuning,
-      ...(runtimeUrl ? { runtimeUrl } : {}),
+      ...fetching,
     }));
     if (event.kind !== 'loaded') {
       throw new AloudError('vad-load-failed', `worker answered load with ${event.kind}`);

@@ -46,12 +46,23 @@ export class ModelHost {
    * picker says now.
    */
   embed(texts: readonly string[]): Promise<Float32Array[]> {
-    if (this.loaded?.asr.alive) return this.loaded.asr.embed(texts, RUNTIME_URL);
+    const fetching = { runtimeUrl: RUNTIME_URL, keep: this.settings.keepModels() };
+    if (this.loaded?.asr.alive) return this.loaded.asr.embed(texts, fetching);
     if (!this.embedder?.alive) {
       this.embedder?.dispose();
       this.embedder = new AsrClient(asrWorker());
     }
-    return this.embedder.embed(texts, RUNTIME_URL);
+    return this.embedder.embed(texts, fetching);
+  }
+
+  /** Ends both workers, so the models they hold leave memory as well as the disk. */
+  forget(): void {
+    this.loaded?.asr.dispose();
+    this.loaded?.vad.dispose();
+    this.embedder?.dispose();
+    this.loaded = null;
+    this.embedder = null;
+    this.loadedKey.set(null);
   }
 
   /**
@@ -82,12 +93,7 @@ export class ModelHost {
   }
 
   private async load(key: string): Promise<Loaded> {
-    this.loaded?.asr.dispose();
-    this.loaded?.vad.dispose();
-    this.embedder?.dispose();
-    this.loaded = null;
-    this.embedder = null;
-    this.loadedKey.set(null);
+    this.forget();
     this.downloads.clear();
     this.download.set(null);
     this.loading.set(true);
@@ -98,6 +104,7 @@ export class ModelHost {
         vadWorker,
         spec: this.settings.spec(),
         runtimeUrl: RUNTIME_URL,
+        keep: this.settings.keepModels(),
         onProgress: (progress) => this.track(progress),
       });
 

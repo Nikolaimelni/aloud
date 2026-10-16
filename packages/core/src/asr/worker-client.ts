@@ -1,4 +1,5 @@
 import { AloudError } from '../errors';
+import type { Fetching } from '../fetching';
 import { WorkerChannel } from '../worker-channel';
 import type {
   AsrDevice,
@@ -33,14 +34,8 @@ export class AsrClient {
     });
   }
 
-  /** `runtimeUrl` is where the page serves onnxruntime's wasm; left out, it comes from jsDelivr. */
-  async load(spec: AsrModelSpec, runtimeUrl?: string): Promise<LoadedModel> {
-    const event = await this.channel.request((id) => ({
-      kind: 'load',
-      id,
-      spec,
-      ...(runtimeUrl ? { runtimeUrl } : {}),
-    }));
+  async load(spec: AsrModelSpec, fetching: Fetching = {}): Promise<LoadedModel> {
+    const event = await this.channel.request((id) => ({ kind: 'load', id, spec, ...fetching }));
     if (event.kind !== 'loaded') {
       throw new AloudError('model-load-failed', `worker answered load with ${event.kind}`);
     }
@@ -63,13 +58,8 @@ export class AsrClient {
   }
 
   /** Unit vectors, one per text, for the extractive summary. The speech model need not be loaded. */
-  async embed(texts: readonly string[], runtimeUrl?: string): Promise<Float32Array[]> {
-    const event = await this.channel.request((id) => ({
-      kind: 'embed',
-      id,
-      texts,
-      ...(runtimeUrl ? { runtimeUrl } : {}),
-    }));
+  async embed(texts: readonly string[], fetching: Fetching = {}): Promise<Float32Array[]> {
+    const event = await this.channel.request((id) => ({ kind: 'embed', id, texts, ...fetching }));
     if (event.kind !== 'vectors') {
       throw new AloudError('inference-failed', `worker answered embed with ${event.kind}`);
     }

@@ -1,4 +1,5 @@
 import type { AloudErrorCode } from '../errors';
+import type { Fetching } from '../fetching';
 
 export type AsrDevice = 'webgpu' | 'wasm';
 export type AsrPrecision = 'fp32' | 'fp16' | 'q8' | 'q4';
@@ -26,25 +27,13 @@ export type ModelProgress = {
 };
 
 export type AsrRequest =
-  | {
-      readonly kind: 'load';
-      readonly id: number;
-      readonly spec: AsrModelSpec;
-      /** Where the page serves onnxruntime's wasm. Left out, it comes from jsDelivr. */
-      readonly runtimeUrl?: string;
-    }
+  | ({ readonly kind: 'load'; readonly id: number; readonly spec: AsrModelSpec } & Fetching)
   /**
    * Sentence embeddings for the summary. They live in this worker rather than a third one
    * because transformers.js is already resident here. They never run while the model is
-   * transcribing, and do not need it loaded.
+   * transcribing, and do not need it loaded, so they say how to fetch just as a load does.
    */
-  | {
-      readonly kind: 'embed';
-      readonly id: number;
-      readonly texts: readonly string[];
-      /** As for load: a summary can be the first thing this worker is asked for. */
-      readonly runtimeUrl?: string;
-    }
+  | ({ readonly kind: 'embed'; readonly id: number; readonly texts: readonly string[] } & Fetching)
   | {
       readonly kind: 'transcribe';
       readonly id: number;

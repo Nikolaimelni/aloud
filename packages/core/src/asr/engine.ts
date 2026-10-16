@@ -31,12 +31,8 @@ export class SpeechEngine {
   async load(
     spec: AsrModelSpec,
     onProgress: (progress: ModelProgress) => void,
-    runtimeUrl?: string,
   ): Promise<AsrDevice> {
     const device = spec.device === 'auto' ? await detectDevice() : spec.device;
-    if (runtimeUrl) {
-      serveRuntimeFrom(runtimeUrl);
-    }
 
     try {
       this.transcriber = await retry(() =>

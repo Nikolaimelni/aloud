@@ -19,7 +19,32 @@
       </label>
     }
   </fieldset>
-  <p class="hint">Downloaded the first time it is used, then kept by the browser.</p>
+
+  <fieldset class="storage" [disabled]="busy()">
+    <legend>On this device</legend>
+    <label class="keep">
+      <input type="checkbox" [checked]="settings.keepModels()" (change)="setKeep($event)" />
+      Keep downloaded models between visits
+    </label>
+    <p class="hint">
+      @if (settings.keepModels()) {
+        The browser keeps them after the first download, so the next visit starts in a second.
+      } @else {
+        No model is written to this device. Every visit downloads it again, so starting needs the
+        network.
+      }
+    </p>
+    @if (storage.stored(); as stored) {
+      <div class="row">
+        @if (stored.bytes > 0) {
+          <span>Models stored here: {{ size(stored.bytes) }}</span>
+          <button class="button" type="button" (click)="remove()">Remove them</button>
+        } @else {
+          <span>No models are stored here.</span>
+        }
+      </div>
+    }
+  </fieldset>
 
   <details class="advanced">
     <summary>Advanced</summary>

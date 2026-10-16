@@ -105,6 +105,12 @@ Recordings and transcripts are kept in IndexedDB on the machine you used, the la
 sessions, and "Delete all" means it. Clearing the site data clears them too, along with the
 cached weights.
 
+The weights stay in Cache Storage after the first download, 34 MB for the fast model and the
+voice detector, and the summary model adds 23. Settings says how much is there and removes it.
+It can also stop the app keeping the models between visits, at the price of downloading them
+every time. That is a setting rather than a cleanup when the tab closes, because a closing tab
+gets no reliable chance to finish deleting anything.
+
 Capturing another tab shows the browser's own sharing indicator the whole time, which is the
 browser telling you the truth about what is being read.
 
@@ -186,6 +192,11 @@ spontaneous speech with whisper-base. That was not good enough to keep paying 14
 It is not instant on a phone: the first visit downloads about 34 MB before it can transcribe
 anything, and the button says so before you tap it. After that the weights are cached and it
 starts in a second.
+
+It opens with the network off and shows the saved sessions, but it cannot transcribe offline,
+even with every file cached. transformers.js 4.2 asks whether the model has a preprocessor by
+looking it up under `main` rather than the pinned commit, the cache has it under the commit,
+and with no network the answer comes back no. Unpinning would fix it and is not worth it.
 
 It reads WAV and nothing else, up to 500 MB, because the file and its decoded copy sit in
 memory together. Mono 16 kHz is all the model hears, so converting a long recording first

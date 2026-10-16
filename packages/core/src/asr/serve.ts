@@ -1,5 +1,6 @@
 import { env } from '@huggingface/transformers';
 import { AloudError, unwrap } from '../errors';
+import { MODEL_CACHE, type Fetching } from '../fetching';
 import { queued } from '../queue';
 import { fetchUnlessStalled } from '../stall';
 import { Embedder } from '../summary/embed';
@@ -13,9 +14,20 @@ import type { AsrEvent, AsrRequest } from './protocol';
 export function createAsrHandler(
   post: (event: AsrEvent) => void,
 ): (request: AsrRequest) => Promise<void> {
+  // Set by every load and embed. With keep off the weights are written nowhere, Cache Storage
+  // or the HTTP cache.
+  let keep = true;
+  const setFetching = ({ runtimeUrl, keep: wanted = true }: Fetching) => {
+    keep = wanted;
+    env.useBrowserCache = wanted;
+    if (runtimeUrl) serveRuntimeFrom(runtimeUrl);
+  };
+
   // Both models download through transformers.js, and retry() around them only helps if a
   // stalled connection turns into an error.
-  env.fetch = fetchUnlessStalled;
+  env.fetch = (input, init) =>
+    fetchUnlessStalled(input, keep ? init : { ...init, cache: 'no-store' });
+  env.cacheKey = MODEL_CACHE;
   const engine = new SpeechEngine();
   const embedder = new Embedder();
 
@@ -26,17 +38,16 @@ export function createAsrHandler(
 
     try {
       if (request.kind === 'load') {
-        const device = await engine.load(
-          request.spec,
-          (progress) => post({ kind: 'progress', progress }),
-          request.runtimeUrl,
+        setFetching(request);
+        const device = await engine.load(request.spec, (progress) =>
+          post({ kind: 'progress', progress }),
         );
         post({ kind: 'loaded', id: request.id, device, elapsedMs: performance.now() - started });
         return;
       }
 
       if (request.kind === 'embed') {
-        if (request.runtimeUrl) serveRuntimeFrom(request.runtimeUrl);
+        setFetching(request);
         const vectors = await embedder.embed(request.texts, engine.device ?? 'wasm');
         post({
           kind: 'vectors',

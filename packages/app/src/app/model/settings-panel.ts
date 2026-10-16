@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MODELS, type ModelSize } from '@aloud/core/asr/models';
 import { SessionStore } from '../session/session-store';
+import { ModelHost } from './model-host';
 import { ModelSettings, PRECISIONS } from './model-settings';
+import { ModelStorage } from './model-storage';
 
 type ModelOption = {
   readonly size: ModelSize;
@@ -37,10 +39,29 @@ const STEP_RANGE = { min: 0.5, max: 10 } as const;
 export class SettingsPanel {
   protected readonly settings = inject(ModelSettings);
   protected readonly store = inject(SessionStore);
+  protected readonly storage = inject(ModelStorage);
+  private readonly host = inject(ModelHost);
 
   protected readonly models = MODEL_OPTIONS;
   protected readonly precisions = PRECISIONS;
   protected readonly stepRange = STEP_RANGE;
+
+  /** Removing a model mid-download or mid-session would pull it out from under the worker. */
+  protected readonly busy = computed(
+    () => this.store.listening() || this.store.summarising() || this.host.loading(),
+  );
+
+  protected setKeep(event: Event): void {
+    this.attempt(this.storage.setKeep((event.target as HTMLInputElement).checked));
+  }
+
+  protected remove(): void {
+    this.attempt(this.storage.remove());
+  }
+
+  protected size(bytes: number): string {
+    return `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`;
+  }
 
   protected setPrecision(event: Event): void {
     const chosen = PRECISIONS.find((precision) => precision === value(event));
@@ -55,6 +76,13 @@ export class SettingsPanel {
     }
     // The binding only redraws on a change, so a clamp back to the same value would not show.
     input.value = String(this.store.windowStep());
+  }
+
+  private attempt(work: Promise<void>): void {
+    work.catch((cause: unknown) => {
+      const reason = cause instanceof Error ? cause.message : String(cause);
+      this.store.error.set(`The stored models could not be removed: ${reason}`);
+    });
   }
 }
 

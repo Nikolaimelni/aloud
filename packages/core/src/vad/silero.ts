@@ -1,5 +1,6 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { AloudError } from '../errors';
+import { MODEL_CACHE, type Fetching } from '../fetching';
 import { retry } from '../retry';
 import { fetchUnlessStalled } from '../stall';
 import { TARGET_SAMPLE_RATE } from '../audio/source';
@@ -23,7 +24,7 @@ export class SileroVad {
   private state = new Float32Array(STATE_SIZE);
   private input = new Float32Array(CONTEXT + VAD_BLOCK);
 
-  async load(url: string, runtimeUrl?: string): Promise<void> {
+  async load(url: string, { runtimeUrl, keep = true }: Fetching = {}): Promise<void> {
     // A bundled worker has no idea where onnxruntime's wasm ended up, so it is told.
     ort.env.wasm.wasmPaths =
       runtimeUrl ?? `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ort.env.versions.web}/dist/`;
@@ -32,7 +33,7 @@ export class SileroVad {
     ort.env.wasm.numThreads = 1;
 
     try {
-      const weights = await download(url);
+      const weights = await download(url, keep);
       this.session = await ort.InferenceSession.create(weights, { executionProviders: ['wasm'] });
     } catch (cause) {
       throw new AloudError('vad-load-failed', 'the voice activity model would not load', {
@@ -69,12 +70,25 @@ export class SileroVad {
   }
 }
 
-function download(url: string): Promise<Uint8Array> {
-  return retry(async () => {
-    const response = await fetchUnlessStalled(url);
+/**
+ * Kept next to the speech model rather than left to the HTTP cache, so it loads with the
+ * network off and removing the models removes it too.
+ */
+async function download(url: string, keep: boolean): Promise<Uint8Array> {
+  // A private window can refuse Cache Storage. The detector still loads, it just is not kept.
+  const cache =
+    keep && 'caches' in globalThis ? await caches.open(MODEL_CACHE).catch(() => null) : null;
+  const kept = await cache?.match(url);
+  if (kept) return new Uint8Array(await kept.arrayBuffer());
+
+  const weights = await retry(async () => {
+    const response = await fetchUnlessStalled(url, keep ? {} : { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`the weights came back ${response.status}`);
     }
     return new Uint8Array(await response.arrayBuffer());
   });
+  const headers = { 'content-length': String(weights.byteLength) };
+  await cache?.put(url, new Response(weights, { headers })).catch(() => undefined);
+  return weights;
 }

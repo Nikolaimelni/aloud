@@ -12,6 +12,7 @@ import { EMBEDDING_SIZE_MB } from '@aloud/core/summary/model';
 import { LevelMeter } from '../capture/level-meter';
 import { ModelHost } from '../model/model-host';
 import { ModelSettings } from '../model/model-settings';
+import { ModelStorage } from '../model/model-storage';
 import { RecordingPlayer } from './recording-player';
 import { SessionStore, type SourceKind } from './session-store';
 import { TranscriptView } from './transcript-view';
@@ -53,6 +54,7 @@ export class SessionPanel {
   protected readonly store = inject(SessionStore);
   protected readonly host = inject(ModelHost);
   private readonly settings = inject(ModelSettings);
+  private readonly storage = inject(ModelStorage);
 
   protected readonly sources = SOURCES;
   protected readonly clock = clock;
@@ -77,15 +79,26 @@ export class SessionPanel {
   });
 
   protected readonly subline = computed(() => {
+    const keep = this.settings.keepModels();
     const progress = this.host.download();
     if (progress) {
-      return `${megabytes(progress.loaded)} of ${megabytes(progress.total)} MB. This happens once; the browser keeps it.`;
+      const after = keep
+        ? 'This happens once; the browser keeps it.'
+        : 'Nothing is kept after this visit.';
+      return `${megabytes(progress.loaded)} of ${megabytes(progress.total)} MB. ${after}`;
     }
     if (this.store.listening()) return `${clock(this.store.heard())} heard`;
     if (this.store.source() === 'file') return '';
-    return this.host.hasWeights()
-      ? 'The model is loaded.'
-      : `The first start downloads ${MODELS[this.settings.model()].sizeMb} MB, once.`;
+    if (this.host.hasWeights()) return 'The model is loaded.';
+
+    // Nothing rather than the wrong thing, for the moment it takes to look in the cache.
+    const stored = this.storage.stored();
+    if (!stored) return '';
+    const { id, sizeMb } = MODELS[this.settings.model()];
+    if (stored.repos.has(id)) return 'The model is on this device already.';
+    return keep
+      ? `The first start downloads ${sizeMb} MB, once.`
+      : `Starting downloads ${sizeMb} MB, and nothing is kept after this visit.`;
   });
 
   /** One sentence on how it is coping. The four numbers behind it are a click away. */

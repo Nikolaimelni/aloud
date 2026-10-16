@@ -1,5 +1,6 @@
 import { AsrClient } from './asr/worker-client';
 import type { AsrDevice, AsrModelSpec, ModelProgress } from './asr/protocol';
+import type { Fetching } from './fetching';
 import { VadClient } from './vad/worker-client';
 
 export type Engines = {
@@ -14,25 +15,20 @@ export type EngineOptions = {
   readonly asrWorker: () => Worker;
   readonly vadWorker: () => Worker;
   readonly spec: AsrModelSpec;
-  /** Where the page serves onnxruntime's wasm. Left out, both workers fetch it from jsDelivr. */
-  readonly runtimeUrl?: string;
   readonly onProgress?: (progress: ModelProgress) => void;
-};
+} & Fetching;
 
 /**
  * Both workers, loaded side by side. If either one fails, both are terminated: a Worker nobody
  * holds a reference to keeps running, and keeps downloading, until the page goes away.
  */
 export async function loadEngines(options: EngineOptions): Promise<Engines> {
-  const { runtimeUrl, onProgress } = options;
-  const asr = new AsrClient(options.asrWorker(), onProgress ? { onProgress } : {});
-  const vad = new VadClient(options.vadWorker());
+  const { asrWorker, vadWorker, spec, onProgress, ...fetching } = options;
+  const asr = new AsrClient(asrWorker(), onProgress ? { onProgress } : {});
+  const vad = new VadClient(vadWorker());
 
   try {
-    const [model] = await Promise.all([
-      asr.load(options.spec, runtimeUrl),
-      vad.load(runtimeUrl ? { runtimeUrl } : {}),
-    ]);
+    const [model] = await Promise.all([asr.load(spec, fetching), vad.load(fetching)]);
     return { asr, vad, device: model.device, elapsedMs: model.elapsedMs };
   } catch (cause) {
     asr.dispose();
