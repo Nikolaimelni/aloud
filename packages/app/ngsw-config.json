@@ -6,7 +6,15 @@
       "name": "shell",
       "installMode": "prefetch",
       "resources": {
-        "files": ["/index.html", "/favicon.ico", "/*.css", "/*.js", "/worklets/**"]
+        "files": [
+          "/index.html",
+          "/favicon.ico",
+          "/favicon.svg",
+          "/apple-touch-icon.png",
+          "/*.css",
+          "/*.js",
+          "/worklets/**"
+        ]
       }
     },
     {
