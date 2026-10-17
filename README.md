@@ -48,9 +48,9 @@ LibriSpeech scored 5.9%, and every one of those errors was the scoring rather th
 A WER quoted without saying which normaliser produced it is not a number.
 
 It runs on WASM only. The WebGPU builds of onnxruntime are 27 and 28 MB, over the 25 MB
-Cloudflare Pages takes per file, and they need `eval` in the CSP. Tiny at q8 already runs at a
-fourteenth of real time on the CPU, so the GPU would buy nothing anyone could feel, and CI has
-no GPU either.
+Cloudflare Pages takes per file, and they need `eval` in the CSP. Tiny at q8 already reads a file
+at under a tenth of real time on the CPU, so the GPU would buy nothing anyone could feel, and CI
+has no GPU either.
 
 ### Running the benchmark
 
@@ -88,8 +88,8 @@ and everything that went wrong building it, is in [docs/local-agreement.md](docs
 
 ## Privacy
 
-The audio never goes anywhere. There is no server to send it to: the whole pipeline is four
-threads in your tab.
+The audio never goes anywhere. There is no server to send it to: the whole pipeline runs in
+workers inside your tab.
 
 The model weights are the one thing fetched over the network: from huggingface.co, on the
 first run, pinned to a commit and cached afterwards. onnxruntime's WebAssembly ships inside
@@ -139,10 +139,9 @@ pnpm dev
 Pick a source and press start. The weights download once, then stay in the browser cache, so
 the first run is slow and the rest are not.
 
-`pnpm install` will mention three dependencies whose build scripts it skipped:
-`onnxruntime-node`, `sharp` and `protobufjs`. They arrive with transformers.js, which also
-runs on a server and on images, and none of them is reachable from a browser tab. Leave them
-unbuilt.
+`pnpm install` will mention two dependencies whose build scripts it skipped: `onnxruntime-node`
+and `protobufjs`. They arrive with transformers.js, which also runs on a server, and neither is
+reachable from a browser tab. Leave them unbuilt.
 
 The one thing a host has to get right is the headers, and two of them carry the speed:
 
