@@ -1,5 +1,7 @@
 # Aloud
 
+https://aloud.nikolai-melnichenko-fe.workers.dev/
+
 Live captions in the browser. Talk, or play a call in another tab, and the text shows up about
 a second later. The speech model runs on your own machine, so the audio never leaves the tab.
 English only.
