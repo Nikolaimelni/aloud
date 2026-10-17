@@ -6,11 +6,11 @@ import { ModelSettings } from './model-settings';
 
 export type Stored = {
   readonly bytes: number;
-  /** Hugging Face repos with files in the cache, such as `onnx-community/moonshine-tiny-ONNX`. */
-  readonly repos: ReadonlySet<string>;
+  /** URL paths of the cached files, `/<repo>/resolve/<commit>/<file>`. */
+  readonly paths: ReadonlySet<string>;
 };
 
-const NOTHING: Stored = { bytes: 0, repos: new Set() };
+const NOTHING: Stored = { bytes: 0, paths: new Set() };
 
 /** What the downloaded models take up on this device, and the way to give it back. */
 @Injectable({ providedIn: 'root' })
@@ -32,6 +32,15 @@ export class ModelStorage {
     effect(() => {
       if (!this.host.loading() && !this.session.summarising()) void this.measure();
     });
+  }
+
+  /**
+   * Whether all of these files from that commit are cached. A download cut short stores
+   * nothing for the file it was on, so a file that is there is whole.
+   */
+  holds(repo: string, revision: string, files: readonly string[]): boolean {
+    const paths = this.stored()?.paths;
+    return !!paths && files.every((file) => paths.has(`/${repo}/resolve/${revision}/${file}`));
   }
 
   async remove(): Promise<void> {
@@ -64,14 +73,14 @@ export class ModelStorage {
 
       const cache = await caches.open(MODEL_CACHE);
       let bytes = 0;
-      const repos = new Set<string>();
+      const paths = new Set<string>();
       for (const request of await cache.keys()) {
         const response = await cache.match(request);
         if (!response) continue;
         bytes += Number(response.headers.get('content-length')) || (await response.blob()).size;
-        repos.add(new URL(request.url).pathname.split('/').slice(1, 3).join('/'));
+        paths.add(new URL(request.url).pathname);
       }
-      if (run === this.measuring) this.stored.set({ bytes, repos });
+      if (run === this.measuring) this.stored.set({ bytes, paths });
     } catch {
       // Some private windows refuse Cache Storage outright, and then nothing can be in it.
       if (run === this.measuring) this.stored.set(NOTHING);

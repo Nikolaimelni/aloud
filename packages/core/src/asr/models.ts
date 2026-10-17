@@ -1,3 +1,5 @@
+import type { AsrPrecision } from './protocol';
+
 /**
  * Moonshine rather than Whisper: it is made for live English, it reads a two-second line in a
  * fraction of what Whisper spends padding every window to thirty seconds, and at q8 tiny is
@@ -18,6 +20,28 @@ export const MODELS = {
     sizeMb: 67,
   },
 } as const;
+
+/**
+ * q8 is what keeps tiny at 32 MB. The q4 export quantises the matrices but leaves the token
+ * table in float32, and comes out at 55.
+ */
+export const DEFAULT_PRECISION: AsrPrecision = 'q8';
+
+const SUFFIXES: Record<AsrPrecision, string> = {
+  fp32: '',
+  fp16: '_fp16',
+  q8: '_quantized',
+  q4: '_q4',
+};
+
+/**
+ * The two weight files transformers.js fetches for a Moonshine model, as paths in its repo.
+ * Everything else it fetches is a few kilobytes of config.
+ */
+export function weightFiles(precision: AsrPrecision): readonly string[] {
+  const suffix = SUFFIXES[precision];
+  return [`onnx/encoder_model${suffix}.onnx`, `onnx/decoder_model_merged${suffix}.onnx`];
+}
 
 export type ModelSize = keyof typeof MODELS;
 

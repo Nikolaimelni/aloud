@@ -2,15 +2,10 @@ import { env, pipeline } from '@huggingface/transformers';
 import { TARGET_SAMPLE_RATE } from '../audio/source';
 import { AloudError } from '../errors';
 import { retry } from '../retry';
-import type { AsrDevice, AsrModelSpec, AsrPrecision, ModelProgress, Transcript } from './protocol';
+import { DEFAULT_PRECISION } from './models';
+import type { AsrDevice, AsrModelSpec, ModelProgress, Transcript } from './protocol';
 
 type Transcriber = Awaited<ReturnType<typeof pipeline<'automatic-speech-recognition'>>>;
-
-/**
- * q8 is what keeps tiny at 32 MB. The q4 export quantises the matrices but leaves the token
- * table in float32, and comes out at 55.
- */
-const DEFAULT_DTYPE: AsrPrecision = 'q8';
 
 /**
  * The paper caps output at six tokens per second of audio, so a decoder that has lost the
@@ -38,7 +33,7 @@ export class SpeechEngine {
       this.transcriber = await retry(() =>
         pipeline('automatic-speech-recognition', spec.model, {
           device,
-          dtype: spec.dtype ?? DEFAULT_DTYPE,
+          dtype: spec.dtype ?? DEFAULT_PRECISION,
           // The files come from this commit. transformers.js 4.2 still asks `main` for their
           // sizes first, so `resolve/main` in the network panel is the progress bar, not the model.
           ...(spec.revision ? { revision: spec.revision } : {}),

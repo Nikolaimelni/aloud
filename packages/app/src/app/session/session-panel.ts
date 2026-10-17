@@ -6,7 +6,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { MODELS } from '@aloud/core/asr/models';
+import { MODELS, weightFiles } from '@aloud/core/asr/models';
 import { clock } from '@aloud/core/stream/transcript';
 import { EMBEDDING_SIZE_MB } from '@aloud/core/summary/model';
 import { LevelMeter } from '../capture/level-meter';
@@ -94,8 +94,10 @@ export class SessionPanel {
     // Nothing rather than the wrong thing, for the moment it takes to look in the cache.
     const stored = this.storage.stored();
     if (!stored) return '';
-    const { id, sizeMb } = MODELS[this.settings.model()];
-    if (stored.repos.has(id)) return 'The model is on this device already.';
+    const { id, revision, sizeMb } = MODELS[this.settings.model()];
+    if (this.storage.holds(id, revision, weightFiles(this.settings.weights()))) {
+      return 'The model is on this device already.';
+    }
     return keep
       ? `The first start downloads ${sizeMb} MB, once.`
       : `Starting downloads ${sizeMb} MB, and nothing is kept after this visit.`;
