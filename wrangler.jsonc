@@ -1,0 +1,9 @@
+// A Worker with no script of its own: Cloudflare serves the Angular build as static assets and
+// applies the headers in its _headers file.
+{
+  "name": "aloud",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./packages/app/dist/app/browser",
+  },
+}

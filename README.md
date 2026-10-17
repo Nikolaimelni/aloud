@@ -48,7 +48,7 @@ LibriSpeech scored 5.9%, and every one of those errors was the scoring rather th
 A WER quoted without saying which normaliser produced it is not a number.
 
 It runs on WASM only. The WebGPU builds of onnxruntime are 27 and 28 MB, over the 25 MB
-Cloudflare Pages takes per file, and they need `eval` in the CSP. Tiny at q8 already reads a file
+Cloudflare takes per file, and they need `eval` in the CSP. Tiny at q8 already reads a file
 at under a tenth of real time on the CPU, so the GPU would buy nothing anyone could feel, and CI
 has no GPU either.
 
@@ -166,7 +166,7 @@ Cross-Origin-Embedder-Policy: credentialless
 
 They are what lets onnxruntime start its thread pool, which is worth roughly a factor of two
 on WASM, and the `credentialless` variant is what still allows the weights to come from
-Hugging Face. `packages/app/public/_headers` asks Cloudflare Pages for them and ships in the
+Hugging Face. `packages/app/public/_headers` asks Cloudflare for them and ships in the
 build output, together with the CSP. That policy allows `'wasm-unsafe-eval'` and not
 `'unsafe-eval'`: WebAssembly may compile, JavaScript may not be built from strings. The
 offline test serves the build with the same file. Anywhere else, set them yourself; without
@@ -174,8 +174,11 @@ the first two the app works and is half the speed.
 
 ```
 pnpm build
-pnpm dlx wrangler pages deploy packages/app/dist/app/browser --project-name aloud
+pnpm dlx wrangler deploy
 ```
+
+`wrangler.jsonc` makes it a Worker with no script, only the build as static assets. Cloudflare
+builds and deploys every push to `main` on its own.
 
 The build copies onnxruntime's plain WebAssembly build into `ort/`, 14 MB in one file. The
 service worker keeps it for offline use, and transformers.js is told not to keep a second copy
