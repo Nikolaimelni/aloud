@@ -114,6 +114,20 @@ gets no reliable chance to finish deleting anything.
 Capturing another tab shows the browser's own sharing indicator the whole time, which is the
 browser telling you the truth about what is being read.
 
+## Security
+
+Most of it is the CSP in `packages/app/public/_headers`, and the comment above it says why each
+part is there. Scripts and workers come from the site itself and nowhere else, with no
+`unsafe-eval` and no `blob:`, while WebAssembly may still compile. The page refuses to be
+framed, and only this origin may ask for the microphone or a screen.
+
+The lockfile is installed frozen, GitHub Actions are pinned to commit hashes and the weights to
+model commits. CI fails on a high or critical advisory in the production dependencies, and
+Dependabot groups minor and patch updates into one pull request a week. `pnpm.overrides` lifts
+a few transitive packages past their advisories; none of them reaches the browser. One moderate
+advisory stays open: `sprintf-js`, which arrives through `onnxruntime-node`, the Node build that
+transformers.js installs and a browser never loads. There is no fixed release yet.
+
 ## Status
 
 It works end to end. A microphone, another tab's audio or a WAV file goes through one

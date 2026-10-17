@@ -19,6 +19,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Production only: the dev tooling's advisories never reach a browser. See the README.
+      - run: pnpm audit --prod --audit-level high
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
