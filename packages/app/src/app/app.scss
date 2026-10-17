@@ -48,6 +48,17 @@
   color: var(--ink-2);
 }
 
+.caveat {
+  margin: 8px 0 0;
+  max-width: 56ch;
+  font-size: 15px;
+  color: var(--ink-2);
+
+  strong {
+    color: var(--ink);
+  }
+}
+
 main {
   display: grid;
   gap: 18px;
