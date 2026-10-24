@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@aloud/core": "workspace:*",
-    "@angular/common": "^22.2.2",
-    "@angular/compiler": "^22.2.2",
-    "@angular/core": "^22.2.2",
-    "@angular/platform-browser": "^22.2.2",
-    "@angular/service-worker": "^22.2.2",
+    "@angular/common": "^22.2.3",
+    "@angular/compiler": "^22.2.3",
+    "@angular/core": "^22.2.3",
+    "@angular/platform-browser": "^22.2.3",
+    "@angular/service-worker": "^22.2.3",
     "idb": "^8.0.4",
     "onnxruntime-web": "1.30.0",
     "rxjs": "~7.8.0",
@@ -22,9 +22,9 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@angular/build": "^22.2.2",
-    "@angular/cli": "^22.2.2",
-    "@angular/compiler-cli": "^22.2.2",
+    "@angular/build": "^22.2.3",
+    "@angular/cli": "^22.2.3",
+    "@angular/compiler-cli": "^22.2.3",
     "typescript": "~6.0.3"
   }
 }
